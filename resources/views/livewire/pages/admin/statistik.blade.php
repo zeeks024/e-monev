@@ -111,16 +111,7 @@ new #[Layout('components.layouts.admin')] class extends Component
         unset($this->perQuestionStatistics);
         unset($this->verificationProgress);
 
-        $data = json_encode([
-            'perCategoryScores' => $this->perCategoryScores->values()->toArray(),
-            'overallDistribution' => $this->overallDistribution->values()->toArray(),
-            'topBadanPublik' => $this->topBadanPublik->values()->toArray(),
-            'bottomBadanPublik' => $this->bottomBadanPublik->values()->toArray(),
-            'perQuestionStatistics' => $this->perQuestionStatistics->values()->toArray(),
-            'yearOverYearTrends' => $this->yearOverYearTrends->values()->toArray(),
-        ]);
-
-        $this->js("setTimeout(() => { if (window.initCharts) window.initCharts({$data}); }, 100)");
+        $this->js('window.location.reload()');
     }
 }; ?>
 
