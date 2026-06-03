@@ -101,6 +101,16 @@ new #[Layout('components.layouts.admin')] class extends Component
     }
 
     #[Computed]
+    public function perQuestionStatistics(): \Illuminate\Support\Collection
+    {
+        if (! $this->jadwalId) {
+            return collect();
+        }
+
+        return app(StatistikService::class)->getPerQuestionStatistics($this->jadwalId);
+    }
+
+    #[Computed]
     public function filteredPerQuestionStatistics(): \Illuminate\Support\Collection
     {
         return $this->perQuestionStatistics;
