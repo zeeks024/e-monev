@@ -9,6 +9,8 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.admin')] class extends Component
 {
     public ?int $jadwalId = null;
+    public string $klasifikasiFilter = '';
+    public string $searchBadanPublik = '';
 
     public function mount(): void
     {
@@ -65,13 +67,43 @@ new #[Layout('components.layouts.admin')] class extends Component
     }
 
     #[Computed]
-    public function perQuestionStatistics(): \Illuminate\Support\Collection
+    public function filteredTopBadanPublik(): \Illuminate\Support\Collection
     {
-        if (! $this->jadwalId) {
-            return collect();
+        $data = $this->topBadanPublik;
+
+        if ($this->klasifikasiFilter !== '') {
+            $data = $data->where('klasifikasi', $this->klasifikasiFilter);
         }
 
-        return app(StatistikService::class)->getPerQuestionStatistics($this->jadwalId);
+        if ($this->searchBadanPublik !== '') {
+            $term = strtolower($this->searchBadanPublik);
+            $data = $data->filter(fn ($item) => str_contains(strtolower($item['nama_badan_publik']), $term));
+        }
+
+        return $data->values();
+    }
+
+    #[Computed]
+    public function filteredBottomBadanPublik(): \Illuminate\Support\Collection
+    {
+        $data = $this->bottomBadanPublik;
+
+        if ($this->klasifikasiFilter !== '') {
+            $data = $data->where('klasifikasi', $this->klasifikasiFilter);
+        }
+
+        if ($this->searchBadanPublik !== '') {
+            $term = strtolower($this->searchBadanPublik);
+            $data = $data->filter(fn ($item) => str_contains(strtolower($item['nama_badan_publik']), $term));
+        }
+
+        return $data->values();
+    }
+
+    #[Computed]
+    public function filteredPerQuestionStatistics(): \Illuminate\Support\Collection
+    {
+        return $this->perQuestionStatistics;
     }
 
     #[Computed]
@@ -97,32 +129,91 @@ new #[Layout('components.layouts.admin')] class extends Component
 
     public function updatedJadwalId(): void
     {
-        // Invalidate all computed properties when jadwal changes
         unset($this->perCategoryScores);
         unset($this->overallDistribution);
         unset($this->topBadanPublik);
         unset($this->bottomBadanPublik);
         unset($this->perQuestionStatistics);
         unset($this->verificationProgress);
+        unset($this->filteredTopBadanPublik);
+        unset($this->filteredBottomBadanPublik);
+        unset($this->filteredPerQuestionStatistics);
+    }
+
+    public function updatedKlasifikasiFilter(): void
+    {
+        unset($this->filteredTopBadanPublik);
+        unset($this->filteredBottomBadanPublik);
+    }
+
+    public function updatedSearchBadanPublik(): void
+    {
+        unset($this->filteredTopBadanPublik);
+        unset($this->filteredBottomBadanPublik);
+    }
+
+    public function resetFilters(): void
+    {
+        $this->jadwalId = Jadwal::query()->latest('tanggal_mulai')->value('id');
+        $this->klasifikasiFilter = '';
+        $this->searchBadanPublik = '';
+        unset($this->perCategoryScores);
+        unset($this->overallDistribution);
+        unset($this->topBadanPublik);
+        unset($this->bottomBadanPublik);
+        unset($this->perQuestionStatistics);
+        unset($this->verificationProgress);
+        unset($this->filteredTopBadanPublik);
+        unset($this->filteredBottomBadanPublik);
+        unset($this->filteredPerQuestionStatistics);
     }
 }; ?>
 
 <div>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
-            <div class="flex items-center space-x-3">
-                <label for="jadwal-select" class="text-sm font-medium text-gray-600">Periode Jadwal:</label>
+        <div class="flex flex-col space-y-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
+                <div class="flex items-center space-x-3">
+                    <label for="jadwal-select" class="text-sm font-medium text-gray-600">Periode Jadwal:</label>
+                    <select
+                        id="jadwal-select"
+                        wire:model.live="jadwalId"
+                        class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="">-- Pilih Jadwal --</option>
+                        @foreach($jadwals as $jadwal)
+                            <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
                 <select
-                    id="jadwal-select"
-                    wire:model.live="jadwalId"
-                    class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    wire:model.live="klasifikasiFilter"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                    <option value="">-- Pilih Jadwal --</option>
-                    @foreach($jadwals as $jadwal)
-                        <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
-                    @endforeach
+                    <option value="">Semua Klasifikasi</option>
+                    <option value="Sangat Baik">Sangat Baik</option>
+                    <option value="Baik">Baik</option>
+                    <option value="Cukup">Cukup</option>
+                    <option value="Kurang">Kurang</option>
                 </select>
+                <div class="relative">
+                    <input
+                        wire:model.live.debounce.300ms="searchBadanPublik"
+                        type="text"
+                        placeholder="Cari Badan Publik..."
+                        class="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <button
+                    wire:click="resetFilters"
+                    class="px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                    Reset Filter
+                </button>
             </div>
         </div>
     </x-slot>
@@ -135,55 +226,63 @@ new #[Layout('components.layouts.admin')] class extends Component
             </div>
         @else
             {{-- Verification Progress --}}
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500">Total Submissions</p>
-                        <p class="text-3xl font-bold text-gray-900">{{ $this->verificationProgress['total_submissions'] }}</p>
-                    </div>
-                    <div class="bg-blue-100 p-3 rounded-full">
-                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                    </div>
+            <div wire:loading>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    @for($i = 0; $i < 4; $i++)
+                        <div class="bg-white p-6 rounded-lg shadow-md animate-pulse">
+                            <div class="h-4 bg-gray-200 rounded w-24 mb-3"></div>
+                            <div class="h-8 bg-gray-200 rounded w-16"></div>
+                        </div>
+                    @endfor
                 </div>
-                <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500">Terverifikasi</p>
-                        <p class="text-3xl font-bold text-green-600">{{ $this->verificationProgress['verified_submissions'] }}</p>
+            </div>
+            <div wire:loading.remove>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Submissions</p>
+                            <p class="text-3xl font-bold text-gray-900">{{ $this->verificationProgress['total_submissions'] }}</p>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        </div>
                     </div>
-                    <div class="bg-green-100 p-3 rounded-full">
-                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Terverifikasi</p>
+                            <p class="text-3xl font-bold text-green-600">{{ $this->verificationProgress['verified_submissions'] }}</p>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
                     </div>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500">Belum Diverifikasi</p>
-                        <p class="text-3xl font-bold text-yellow-600">{{ $this->verificationProgress['unverified_submissions'] }}</p>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Belum Diverifikasi</p>
+                            <p class="text-3xl font-bold text-yellow-600">{{ $this->verificationProgress['unverified_submissions'] }}</p>
+                        </div>
+                        <div class="bg-yellow-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
                     </div>
-                    <div class="bg-yellow-100 p-3 rounded-full">
-                        <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-500">Progres Verifikasi</p>
-                        <p class="text-3xl font-bold text-blue-600">{{ $this->verificationProgress['verification_percentage'] }}%</p>
-                    </div>
-                    <div class="bg-indigo-100 p-3 rounded-full">
-                        <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Progres Verifikasi</p>
+                            <p class="text-3xl font-bold text-blue-600">{{ $this->verificationProgress['verification_percentage'] }}%</p>
+                        </div>
+                        <div class="bg-indigo-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {{-- Placeholder: Chart sections (Task 10 will add ApexCharts) --}}
+            {{-- Charts: Per Category & Distribution --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {{-- Per Category Scores --}}
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Rata-rata Nilai per Kategori</h2>
-                    {{-- Chart placeholder --}}
-                    <div id="chart-per-category" class="min-h-[300px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                        <p class="text-gray-400 text-sm">Chart akan ditampilkan di sini</p>
-                    </div>
-                    {{-- Data table --}}
+                    <div id="chart-per-category" class="min-h-[300px]"></div>
                     <div class="mt-4 overflow-x-auto">
                         <table class="w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -215,11 +314,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                 {{-- Overall Distribution --}}
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Distribusi Klasifikasi Penilaian</h2>
-                    {{-- Chart placeholder --}}
-                    <div id="chart-distribution" class="min-h-[300px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                        <p class="text-gray-400 text-sm">Chart akan ditampilkan di sini</p>
-                    </div>
-                    {{-- Data table --}}
+                    <div id="chart-distribution" class="min-h-[300px]"></div>
                     <div class="mt-4 overflow-x-auto">
                         <table class="w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -252,74 +347,82 @@ new #[Layout('components.layouts.admin')] class extends Component
                 {{-- Top 10 --}}
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Top 10 Badan Publik</h2>
-                    {{-- Chart placeholder --}}
-                    <div id="chart-top-bp" class="min-h-[250px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                        <p class="text-gray-400 text-sm">Chart akan ditampilkan di sini</p>
+                    <div wire:loading>
+                        <div class="min-h-[250px] flex items-center justify-center">
+                            <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </div>
                     </div>
-                    <div class="mt-4 overflow-x-auto">
-                        <table class="w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Badan Publik</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nilai Akhir</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Klasifikasi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                @forelse($this->topBadanPublik as $item)
+                    <div wire:loading.remove>
+                        <div id="chart-top-bp" class="min-h-[250px]"></div>
+                        <div class="mt-4 overflow-x-auto">
+                            <table class="w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <td class="px-4 py-2 text-sm text-gray-500">{{ $item['rank'] }}</td>
-                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ $item['nama_badan_publik'] }}</td>
-                                        <td class="px-4 py-2 text-sm font-semibold text-green-600">{{ number_format($item['nilai_akhir'], 2) }}</td>
-                                        <td class="px-4 py-2 text-sm">
-                                            <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ $item['klasifikasi'] ?? '-' }}</span>
-                                        </td>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Badan Publik</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nilai Akhir</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Klasifikasi</th>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="px-4 py-2 text-center text-sm text-gray-500">Belum ada data.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @forelse($this->filteredTopBadanPublik as $item)
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm text-gray-500">{{ $item['rank'] }}</td>
+                                            <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ $item['nama_badan_publik'] }}</td>
+                                            <td class="px-4 py-2 text-sm font-semibold text-green-600">{{ number_format($item['nilai_akhir'], 2) }}</td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ $item['klasifikasi'] ?? '-' }}</span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="px-4 py-2 text-center text-sm text-gray-500">Belum ada data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
                 {{-- Bottom 10 --}}
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">10 Badan Publik Terbawah</h2>
-                    {{-- Chart placeholder --}}
-                    <div id="chart-bottom-bp" class="min-h-[250px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                        <p class="text-gray-400 text-sm">Chart akan ditampilkan di sini</p>
+                    <div wire:loading>
+                        <div class="min-h-[250px] flex items-center justify-center">
+                            <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </div>
                     </div>
-                    <div class="mt-4 overflow-x-auto">
-                        <table class="w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Badan Publik</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nilai Akhir</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Klasifikasi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                @forelse($this->bottomBadanPublik as $item)
+                    <div wire:loading.remove>
+                        <div id="chart-bottom-bp" class="min-h-[250px]"></div>
+                        <div class="mt-4 overflow-x-auto">
+                            <table class="w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <td class="px-4 py-2 text-sm text-gray-500">{{ $item['rank'] }}</td>
-                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ $item['nama_badan_publik'] }}</td>
-                                        <td class="px-4 py-2 text-sm font-semibold text-red-600">{{ number_format($item['nilai_akhir'], 2) }}</td>
-                                        <td class="px-4 py-2 text-sm">
-                                            <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ $item['klasifikasi'] ?? '-' }}</span>
-                                        </td>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Badan Publik</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nilai Akhir</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Klasifikasi</th>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="px-4 py-2 text-center text-sm text-gray-500">Belum ada data.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @forelse($this->filteredBottomBadanPublik as $item)
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm text-gray-500">{{ $item['rank'] }}</td>
+                                            <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ $item['nama_badan_publik'] }}</td>
+                                            <td class="px-4 py-2 text-sm font-semibold text-red-600">{{ number_format($item['nilai_akhir'], 2) }}</td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ $item['klasifikasi'] ?? '-' }}</span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="px-4 py-2 text-center text-sm text-gray-500">Belum ada data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -327,47 +430,56 @@ new #[Layout('components.layouts.admin')] class extends Component
             {{-- Per Question Statistics --}}
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Statistik per Pertanyaan</h2>
-                {{-- Placeholder: Filter section (Task 11 will add filters) --}}
-                <div class="mb-4 p-3 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                    <p class="text-gray-400 text-sm">Filter akan ditambahkan di sini</p>
+                <div id="chart-per-question" class="min-h-[300px] mb-6"></div>
+                @if($klasifikasiFilter !== '' || $searchBadanPublik !== '')
+                    <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm text-blue-700">
+                        Filter aktif:
+                        @if($klasifikasiFilter !== '')<span class="font-medium">Klasifikasi: {{ $klasifikasiFilter }}</span>@endif
+                        @if($klasifikasiFilter !== '' && $searchBadanPublik !== '') &middot; @endif
+                        @if($searchBadanPublik !== '')<span class="font-medium">Pencarian: "{{ $searchBadanPublik }}"</span>@endif
+                    </div>
+                @endif
+                <div wire:loading>
+                    <div class="flex items-center justify-center py-8">
+                        <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">No</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pertanyaan</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Skor Maks</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">% Ya</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pass Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            @forelse($this->perQuestionStatistics as $index => $q)
+                <div wire:loading.remove>
+                    <div class="overflow-x-auto">
+                        <table class="w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <td class="px-4 py-2 text-sm text-gray-500">{{ $index + 1 }}</td>
-                                    <td class="px-4 py-2 text-sm text-gray-900 max-w-md truncate">{{ $q['teks_pertanyaan'] }}</td>
-                                    <td class="px-4 py-2 text-sm text-gray-700">{{ $q['skor_maks'] }}</td>
-                                    <td class="px-4 py-2 text-sm text-gray-700">{{ $q['ya_percentage'] }}%</td>
-                                    <td class="px-4 py-2 text-sm text-gray-700">{{ $q['pass_rate'] }}%</td>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">No</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pertanyaan</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Skor Maks</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">% Ya</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pass Rate</th>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="px-4 py-2 text-center text-sm text-gray-500">Belum ada data.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @forelse($this->filteredPerQuestionStatistics as $index => $q)
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm text-gray-500">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-900 max-w-md truncate">{{ $q['teks_pertanyaan'] }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $q['skor_maks'] }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $q['ya_percentage'] }}%</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $q['pass_rate'] }}%</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-2 text-center text-sm text-gray-500">Belum ada data.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
             {{-- Year-over-Year Trends --}}
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Tren Tahunan</h2>
-                {{-- Chart placeholder --}}
-                <div id="chart-yoy-trends" class="min-h-[300px] flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                    <p class="text-gray-400 text-sm">Chart akan ditampilkan di sini</p>
-                </div>
+                <div id="chart-yoy-trends" class="min-h-[300px]"></div>
                 <div class="mt-4 overflow-x-auto">
                     <table class="w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -398,3 +510,371 @@ new #[Layout('components.layouts.admin')] class extends Component
         @endif
     </main>
 </div>
+
+@script
+<script>
+    const brandBlue = '#438AFF';
+    const brandSecondary = '#3B82F6';
+    const colorSuccess = '#10B981';
+    const colorWarning = '#F59E0B';
+    const colorDanger = '#EF4444';
+    const colorPurple = '#8B5CF6';
+    const colorCyan = '#06B6D4';
+    const colorGray = '#9CA3AF';
+
+    const chartColors = [brandBlue, brandSecondary, colorSuccess, colorWarning, colorDanger, colorPurple, colorCyan];
+
+    function destroyExistingCharts() {
+        if (window.statistikCharts) {
+            window.statistikCharts.forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+        }
+        window.statistikCharts = [];
+    }
+
+    function initCharts() {
+        destroyExistingCharts();
+
+        const perCategoryScores = @js($this->perCategoryScores);
+        const overallDistribution = @js($this->overallDistribution);
+        const topBadanPublik = @js($this->filteredTopBadanPublik);
+        const bottomBadanPublik = @js($this->filteredBottomBadanPublik);
+        const perQuestionStatistics = @js($this->filteredPerQuestionStatistics);
+        const yearOverYearTrends = @js($this->yearOverYearTrends);
+
+        // 1. Per Category Scores — Grouped Bar Chart
+        if (perCategoryScores.length > 0) {
+            const categories = perCategoryScores.map(s => s.kategori_nama);
+            const avgScores = perCategoryScores.map(s => parseFloat(s.average_score.toFixed(2)));
+            const maxScores = perCategoryScores.map(s => s.max_score);
+
+            const chartPerCategory = new ApexCharts(document.querySelector('#chart-per-category'), {
+                series: [
+                    { name: 'Rata-rata Nilai', data: avgScores },
+                    { name: 'Skor Maksimum', data: maxScores }
+                ],
+                chart: {
+                    type: 'bar',
+                    height: 300,
+                    fontFamily: 'Poppins, sans-serif',
+                    toolbar: { show: false }
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: false,
+                        columnWidth: '55%',
+                        borderRadius: 4
+                    }
+                },
+                dataLabels: { enabled: false },
+                stroke: { show: true, width: 2, colors: ['transparent'] },
+                xaxis: {
+                    categories: categories,
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '12px' } }
+                },
+                yaxis: {
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '12px' } }
+                },
+                colors: [brandBlue, brandSecondary],
+                fill: { opacity: 1 },
+                legend: {
+                    position: 'top',
+                    fontFamily: 'Poppins, sans-serif',
+                    markers: { radius: 4 }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val;
+                        }
+                    }
+                }
+            });
+            chartPerCategory.render();
+            window.statistikCharts.push(chartPerCategory);
+        } else {
+            document.querySelector('#chart-per-category').innerHTML = '<p class="text-gray-400 text-sm text-center py-12">Belum ada data.</p>';
+        }
+
+        // 2. Klasifikasi Distribution — Donut Chart
+        if (overallDistribution.length > 0) {
+            const labels = overallDistribution.map(d => d.nama);
+            const series = overallDistribution.map(d => d.count);
+
+            const chartDistribution = new ApexCharts(document.querySelector('#chart-distribution'), {
+                series: series,
+                chart: {
+                    type: 'donut',
+                    height: 300,
+                    fontFamily: 'Poppins, sans-serif'
+                },
+                labels: labels,
+                colors: chartColors.slice(0, labels.length),
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: '65%',
+                            labels: {
+                                show: true,
+                                name: { show: true, fontFamily: 'Poppins, sans-serif' },
+                                value: { show: true, fontFamily: 'Poppins, sans-serif' },
+                                total: {
+                                    show: true,
+                                    label: 'Total',
+                                    fontFamily: 'Poppins, sans-serif',
+                                    formatter: function (w) {
+                                        return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                legend: {
+                    position: 'bottom',
+                    fontFamily: 'Poppins, sans-serif'
+                },
+                dataLabels: { enabled: false },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val + ' entitas';
+                        }
+                    }
+                }
+            });
+            chartDistribution.render();
+            window.statistikCharts.push(chartDistribution);
+        } else {
+            document.querySelector('#chart-distribution').innerHTML = '<p class="text-gray-400 text-sm text-center py-12">Belum ada data.</p>';
+        }
+
+        // 3. Top 10 Badan Publik — Horizontal Bar Chart
+        if (topBadanPublik.length > 0) {
+            const topLabels = topBadanPublik.map(b => b.nama_badan_publik).reverse();
+            const topData = topBadanPublik.map(b => parseFloat(b.nilai_akhir.toFixed(2))).reverse();
+
+            const chartTop = new ApexCharts(document.querySelector('#chart-top-bp'), {
+                series: [{ name: 'Nilai Akhir', data: topData }],
+                chart: {
+                    type: 'bar',
+                    height: 250,
+                    fontFamily: 'Poppins, sans-serif',
+                    toolbar: { show: false }
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        barHeight: '60%'
+                    }
+                },
+                dataLabels: { enabled: false },
+                xaxis: {
+                    categories: topLabels,
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '11px' } }
+                },
+                yaxis: {
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '11px' } }
+                },
+                colors: [colorSuccess],
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val;
+                        }
+                    }
+                }
+            });
+            chartTop.render();
+            window.statistikCharts.push(chartTop);
+        } else {
+            document.querySelector('#chart-top-bp').innerHTML = '<p class="text-gray-400 text-sm text-center py-12">Belum ada data.</p>';
+        }
+
+        // 4. Bottom 10 Badan Publik — Horizontal Bar Chart
+        if (bottomBadanPublik.length > 0) {
+            const bottomLabels = bottomBadanPublik.map(b => b.nama_badan_publik).reverse();
+            const bottomData = bottomBadanPublik.map(b => parseFloat(b.nilai_akhir.toFixed(2))).reverse();
+
+            const chartBottom = new ApexCharts(document.querySelector('#chart-bottom-bp'), {
+                series: [{ name: 'Nilai Akhir', data: bottomData }],
+                chart: {
+                    type: 'bar',
+                    height: 250,
+                    fontFamily: 'Poppins, sans-serif',
+                    toolbar: { show: false }
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        barHeight: '60%'
+                    }
+                },
+                dataLabels: { enabled: false },
+                xaxis: {
+                    categories: bottomLabels,
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '11px' } }
+                },
+                yaxis: {
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '11px' } }
+                },
+                colors: [colorDanger],
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val;
+                        }
+                    }
+                }
+            });
+            chartBottom.render();
+            window.statistikCharts.push(chartBottom);
+        } else {
+            document.querySelector('#chart-bottom-bp').innerHTML = '<p class="text-gray-400 text-sm text-center py-12">Belum ada data.</p>';
+        }
+
+        // 5. Per Question Statistics — Bar Chart (Pass Rate)
+        if (perQuestionStatistics.length > 0) {
+            const qLabels = perQuestionStatistics.map((q, i) => 'Q' + (i + 1));
+            const qPassRates = perQuestionStatistics.map(q => parseFloat(q.pass_rate));
+            const qYaPercentages = perQuestionStatistics.map(q => parseFloat(q.ya_percentage));
+
+            const chartPerQuestion = new ApexCharts(document.querySelector('#chart-per-question'), {
+                series: [
+                    { name: 'Pass Rate (%)', data: qPassRates },
+                    { name: '% Ya', data: qYaPercentages }
+                ],
+                chart: {
+                    type: 'bar',
+                    height: 300,
+                    fontFamily: 'Poppins, sans-serif',
+                    toolbar: { show: false }
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: false,
+                        columnWidth: '55%',
+                        borderRadius: 4
+                    }
+                },
+                dataLabels: { enabled: false },
+                xaxis: {
+                    categories: qLabels,
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '11px' } },
+                    title: { text: 'Pertanyaan', style: { fontFamily: 'Poppins, sans-serif' } }
+                },
+                yaxis: {
+                    max: 100,
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '12px' } },
+                    title: { text: 'Persentase (%)', style: { fontFamily: 'Poppins, sans-serif' } }
+                },
+                colors: [brandBlue, colorCyan],
+                legend: {
+                    position: 'top',
+                    fontFamily: 'Poppins, sans-serif'
+                },
+                tooltip: {
+                    x: {
+                        formatter: function (val, opts) {
+                            const idx = opts.dataPointIndex;
+                            const text = perQuestionStatistics[idx]?.teks_pertanyaan ?? val;
+                            return text.length > 60 ? text.substring(0, 60) + '...' : text;
+                        }
+                    },
+                    y: {
+                        formatter: function (val) {
+                            return val + '%';
+                        }
+                    }
+                }
+            });
+            chartPerQuestion.render();
+            window.statistikCharts.push(chartPerQuestion);
+        } else {
+            document.querySelector('#chart-per-question').innerHTML = '<p class="text-gray-400 text-sm text-center py-12">Belum ada data.</p>';
+        }
+
+        // 6. Year-over-Year Trends — Line Chart
+        if (yearOverYearTrends.length > 0) {
+            const trendLabels = yearOverYearTrends.map(t => t.nama + ' (' + t.tahun + ')');
+            const trendScores = yearOverYearTrends.map(t => parseFloat(t.average_score.toFixed(2)));
+            const trendParticipants = yearOverYearTrends.map(t => t.total_participants);
+
+            const chartYoY = new ApexCharts(document.querySelector('#chart-yoy-trends'), {
+                series: [
+                    {
+                        name: 'Rata-rata Nilai',
+                        type: 'line',
+                        data: trendScores
+                    },
+                    {
+                        name: 'Jumlah Peserta',
+                        type: 'column',
+                        data: trendParticipants
+                    }
+                ],
+                chart: {
+                    height: 300,
+                    fontFamily: 'Poppins, sans-serif',
+                    toolbar: { show: false },
+                    type: 'line'
+                },
+                stroke: {
+                    width: [3, 0],
+                    curve: 'smooth'
+                },
+                plotOptions: {
+                    bar: {
+                        columnWidth: '40%',
+                        borderRadius: 4
+                    }
+                },
+                dataLabels: { enabled: false },
+                xaxis: {
+                    categories: trendLabels,
+                    labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '11px' }, rotate: -30 }
+                },
+                yaxis: [
+                    {
+                        title: { text: 'Rata-rata Nilai', style: { fontFamily: 'Poppins, sans-serif' } },
+                        labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '12px' } }
+                    },
+                    {
+                        opposite: true,
+                        title: { text: 'Jumlah Peserta', style: { fontFamily: 'Poppins, sans-serif' } },
+                        labels: { style: { fontFamily: 'Poppins, sans-serif', fontSize: '12px' } }
+                    }
+                ],
+                colors: [brandBlue, colorPurple],
+                legend: {
+                    position: 'top',
+                    fontFamily: 'Poppins, sans-serif'
+                },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: {
+                        formatter: function (y, opts) {
+                            if (typeof y !== 'undefined') {
+                                return opts.seriesIndex === 0 ? y.toFixed(2) : y + ' peserta';
+                            }
+                            return y;
+                        }
+                    }
+                }
+            });
+            chartYoY.render();
+            window.statistikCharts.push(chartYoY);
+        } else {
+            document.querySelector('#chart-yoy-trends').innerHTML = '<p class="text-gray-400 text-sm text-center py-12">Belum ada data.</p>';
+        }
+    }
+
+    initCharts();
+</script>
+@endscript
