@@ -116,30 +116,27 @@ new #[Layout('components.layouts.admin')] class extends Component
 
 <div>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
-            <div class="flex items-center space-x-3">
-                <label for="jadwal-select" class="text-sm font-medium text-gray-600">Ganti Periode</label>
-                <select
-                    id="jadwal-select"
-                    wire:model="selectedJadwalId"
-                    class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                    @foreach($jadwals as $jadwal)
-                        <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
-                    @endforeach
-                </select>
-                <button
-                    wire:click="gantiPeriode"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                    Ganti
-                </button>
-            </div>
-        </div>
+        <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
     </x-slot>
 
     <main class="p-8 space-y-8">
+        <div class="flex items-center gap-3">
+            <select
+                wire:model="selectedJadwalId"
+                class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+                @foreach($jadwals as $jadwal)
+                    <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
+                @endforeach
+            </select>
+            <button
+                wire:click="gantiPeriode"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+                Ganti
+            </button>
+        </div>
+
         @if(!$jadwalId)
             <div class="bg-white p-12 rounded-lg shadow-md text-center">
                 <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
@@ -366,7 +363,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pertanyaan</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Skor Maks</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">% Ya</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pass Rate</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">% Tervalidasi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
