@@ -65,11 +65,6 @@ Route::middleware('admin')->group(function () {
     // Nama: admin.statistik
     Volt::route('/statistik', 'pages.admin.statistik')->name('statistik');
 
-    // --- Pengguna ---
-    // URL: /admin/pengguna
-    // Nama: admin.pengguna
-    Volt::route('/pengguna', 'pages.admin.pengguna')->name('pengguna');
-
     // --- Badan Publik ---
     // URL: /admin/badan-publik
     // Nama: admin.badan-publik

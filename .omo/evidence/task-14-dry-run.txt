@@ -1,0 +1,29 @@
+DRY RUN ÔÇö no changes will be saved.
+
+
+ HasilPenilaian #1 ÔÇö user:108 jadwal:2
+   nilai_akhir: 3 ÔåÆ 3
+   klasifikasi_penilaian_id: 1 ÔåÆ 1
+   Per-kategori:
+     [Sarana dan Prasarana] 3 ÔåÆ 3
+     [Kualitas Informasi] 0 ÔåÆ 0
+     [Jenis Informasi] 0 ÔåÆ 0
+     [Komitmen Organisasi] 0 ÔåÆ 0
+     [Digitalisasi] 0 ÔåÆ 0
+     [Barang dan Jasa] 0 ÔåÆ 0
+
+ HasilPenilaian #2 ÔÇö user:56 jadwal:2
+   nilai_akhir: 100 ÔåÆ 100
+   klasifikasi_penilaian_id: 3 ÔåÆ 3
+   Per-kategori:
+     [Sarana dan Prasarana] 10 ÔåÆ 10
+     [Kualitas Informasi] 15 ÔåÆ 15
+     [Jenis Informasi] 40 ÔåÆ 40
+     [Komitmen Organisasi] 15 ÔåÆ 15
+     [Digitalisasi] 10 ÔåÆ 10
+     [Barang dan Jasa] 10 ÔåÆ 10
+
+
+Dry run complete. No changes were made.
+ 0/2 [>---------------------------]   0%
+ 2/2 [============================] 100%

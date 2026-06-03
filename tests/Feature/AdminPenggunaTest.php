@@ -45,7 +45,7 @@ test('admin can create user with badan publik', function () {
         'jabatan' => 'Staff',
     ]);
 
-    $response = $this->get('/admin/pengguna');
+    $response = $this->get('/admin/badan-publik');
 
     $response->assertOk();
     $response->assertSee('Dinas Test');
@@ -95,7 +95,7 @@ test('admin can list users', function () {
         'jabatan' => 'Staff',
     ]);
 
-    $response = $this->get('/admin/pengguna');
+    $response = $this->get('/admin/badan-publik');
 
     $response->assertOk();
     $response->assertSee('Listed User');
@@ -139,7 +139,7 @@ test('admin can delete user', function () {
         'jabatan' => 'Staff',
     ]);
 
-    Volt::test('pages.admin.pengguna')
+    Volt::test('pages.admin.badan-publik')
         ->call('openDeleteModal', $user->id)
         ->call('deleteUser');
 
