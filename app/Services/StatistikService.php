@@ -21,13 +21,12 @@ class StatistikService
      */
     public function getPerCategoryScores(int $jadwalId): Collection
     {
-        // Get verified submission IDs for this jadwal
-        $verifiedSubmissionIds = Submission::query()
+        // Get submission IDs for this jadwal
+        $submissionIds = Submission::query()
             ->where('jadwal_id', $jadwalId)
-            ->where('status_verifikasi', 'Terverifikasi')
             ->pluck('id');
 
-        if ($verifiedSubmissionIds->isEmpty()) {
+        if ($submissionIds->isEmpty()) {
             return collect();
         }
 
@@ -35,7 +34,7 @@ class StatistikService
         $categoryScores = Penilaian::query()
             ->join('submissions', 'penilaians.submission_id', '=', 'submissions.id')
             ->join('kategoris', 'submissions.kategori_id', '=', 'kategoris.id')
-            ->whereIn('penilaians.submission_id', $verifiedSubmissionIds)
+            ->whereIn('penilaians.submission_id', $submissionIds)
             ->where('submissions.jadwal_id', $jadwalId)
             ->select('kategoris.id as kategori_id', 'kategoris.nama as kategori_nama', DB::raw('AVG(penilaians.nilai) as average_score'))
             ->groupBy('kategoris.id', 'kategoris.nama')
@@ -155,15 +154,14 @@ class StatistikService
 
         $questionIds = $questions->pluck('id');
 
-        // Get all answers for these questions in verified submissions
-        $verifiedSubmissionIds = Submission::query()
+        // Get all answers for these questions across all submissions
+        $submissionIds = Submission::query()
             ->where('jadwal_id', $jadwalId)
-            ->where('status_verifikasi', 'Terverifikasi')
             ->pluck('id');
 
         $answerStats = Jawaban::query()
             ->whereIn('jadwal_pertanyaan_id', $questionIds)
-            ->whereIn('submission_id', $verifiedSubmissionIds)
+            ->whereIn('submission_id', $submissionIds)
             ->select('jadwal_pertanyaan_id', DB::raw('COUNT(*) as total'), DB::raw("SUM(CASE WHEN jawaban = 'Ya' THEN 1 ELSE 0 END) as ya_count"), DB::raw('SUM(CASE WHEN is_valid = 1 THEN 1 ELSE 0 END) as valid_count'))
             ->groupBy('jadwal_pertanyaan_id')
             ->get()
