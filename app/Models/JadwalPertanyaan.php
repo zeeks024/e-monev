@@ -20,6 +20,7 @@ class JadwalPertanyaan extends Model
         'tipe_jawaban',
         'butuh_link',
         'butuh_upload',
+        'skor_maks',
     ];
 
     public function jadwal(): BelongsTo

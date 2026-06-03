@@ -46,15 +46,7 @@
 
             <div class="hidden md:flex items-center space-x-2">
                 <a href="/login" class="px-4 py-2 text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50">Masuk</a>
-                <a href="/register" class="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700">Registrasi</a>
-            </div>
 
-            <div class="md:hidden">
-                <button class="text-gray-800 focus:outline-none">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
-                    </svg>
-                </button>
             </div>
         </nav>
     </header>
@@ -171,16 +163,16 @@
         <section id="statistik" class="bg-gradient-to-b from-white to-blue-50 py-20">
             <div class="max-w-screen-xl mx-auto px-6 md:px-20 text-center">
                 <h2 class="text-[56px] font-bold text-center text-blue-600 mb-16 leading-tight">Statistik Hasil Penilaian</h2>
-                <div class="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-6 gap-8">
+                <div class="flex flex-wrap justify-center gap-8">
                     <div class="flex flex-col items-center">
                         <img src="/images/frame-1.png" alt="Icon Statistik" class="mx-auto mb-4 w-24 h-24">
-                        <p class="font-semibold text-gray-700">PPID Pelaksana yang Terdaftar</p>
+                        <p class="font-semibold text-gray-700 text-center">PPID Pelaksana yang Terdaftar</p>
                         <p class="counter text-4xl font-bold text-blue-600 mt-2" data-target="{{ $statistik['total_terdaftar'] }}">0</p>
                     </div>
                     @foreach(($statistik['klasifikasi'] ?? []) as $item)
                         <div class="flex flex-col items-center">
                             <img src="/images/frame-1.png" alt="Icon Statistik" class="mx-auto mb-4 w-24 h-24">
-                            <p class="font-semibold text-gray-700">PPID Pelaksana {{ $item['nama'] }}</p>
+                            <p class="font-semibold text-gray-700 text-center">PPID Pelaksana {{ $item['nama'] }}</p>
                             <p class="counter text-4xl font-bold text-blue-600 mt-2" data-target="{{ $item['jumlah'] }}">0</p>
                         </div>
                     @endforeach

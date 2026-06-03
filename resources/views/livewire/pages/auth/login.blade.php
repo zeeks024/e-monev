@@ -94,11 +94,6 @@ new #[Layout('components.layouts.guest')] class extends Component
                     </div>
                 </form>
 
-                <!-- Register Link -->
-                <p class="mt-6 text-center text-sm text-gray-600">
-                    Belum punya akun?
-                    <a href="{{ route('register') }}" wire:navigate class="font-medium text-blue-600 hover:text-blue-500">Daftar</a>
-                </p>
             </div>
         </div>
 

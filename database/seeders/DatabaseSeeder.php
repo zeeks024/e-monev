@@ -12,6 +12,8 @@ class DatabaseSeeder extends Seeder
         // Panggil AdminSeeder di sini
         $this->call([
             AdminSeeder::class,
+            DinasSeeder::class,
+            KuesionerSeeder::class,
         ]);
 
         // membiarkan factory ini untuk testing

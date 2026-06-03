@@ -16,6 +16,12 @@ class Jawaban extends Model
         'jawaban',
         'link_dokumen',
         'upload_dokumen',
+        'catatan',
+        'is_valid',
+    ];
+
+    protected $casts = [
+        'is_valid' => \App\Casts\ThreeStateBoolean::class,
     ];
 
     public function submission(): BelongsTo

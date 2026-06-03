@@ -14,7 +14,15 @@ class Penilaian extends Model
         'submission_id',
         'nilai',
         'status_informatif',
+        'is_auto_calculated',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_auto_calculated' => 'boolean',
+        ];
+    }
 
     public function submission(): BelongsTo
     {

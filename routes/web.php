@@ -53,11 +53,6 @@ Route::get('/', function () {
     return view('welcome', ['statistik' => $statistik]); // 'welcome' adalah nama file blade Anda
 });
 
-// Rute untuk halaman-halaman statis atau yang tidak menggunakan Volt
-Route::get('/register-success', function () {
-    return view('livewire.pages.auth.register-success');
-})->name('register.success');
-
 // --- Rute untuk Komponen Livewire/Volt ---
 
 // Rute untuk dashboard utama setelah login
