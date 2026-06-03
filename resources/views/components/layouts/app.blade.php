@@ -31,7 +31,6 @@
                                 Notifikasi
                                 <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                             </a>
-                            <a href="{{ route('biodata.edit') }}" wire:navigate class="px-4 py-2 rounded-md {{ request()->routeIs('biodata.edit') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-blue-600' }}">Biodata</a>
                             <a href="{{ route('logout.confirm') }}" wire:navigate class="px-4 py-2 text-gray-600 hover:text-blue-600 rounded-md">Keluar</a>
                         </nav>
                     </div>
