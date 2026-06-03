@@ -77,6 +77,11 @@
             font-size: 10px;
             color: #666;
         }
+        .valid-yes { color: #2e7d32; font-weight: bold; }
+        .valid-no { color: #c62828; font-weight: bold; }
+        .valid-null { color: #f57f17; font-weight: bold; }
+        .catatan-text { font-style: italic; color: #555; }
+        .page-break { page-break-before: always; }
     </style>
 </head>
 <body>
@@ -186,6 +191,57 @@
                 </td>
             </tr>
         </table>
+    </div>
+    @endif
+
+    @if(!empty($detailPerKategori))
+    <div class="page-break"></div>
+
+    <div class="info-section">
+        <h3>Detail Penilaian Per Pernyataan</h3>
+        @foreach($detailPerKategori as $kategoriKey => $kategori)
+        <div style="margin-bottom: 15px;">
+            <h4 style="font-size: 13px; color: #1565c0; margin-bottom: 6px;">{{ $kategori['nama'] }}</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">No</th>
+                        <th>Pernyataan</th>
+                        <th style="width: 60px; text-align: center;">Skor Maks</th>
+                        <th style="width: 60px; text-align: center;">Jawaban</th>
+                        <th style="width: 80px; text-align: center;">Status Validasi</th>
+                        <th>Catatan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($kategori['pernyataan'] as $idx => $pernyataan)
+                    <tr>
+                        <td style="text-align: center;">{{ $loop->iteration }}</td>
+                        <td>{{ $pernyataan['teks_pertanyaan'] }}</td>
+                        <td style="text-align: center;">{{ number_format((float) $pernyataan['skor_maks'], 2) }}</td>
+                        <td style="text-align: center;">{{ $pernyataan['jawaban'] }}</td>
+                        <td style="text-align: center;">
+                            @if($pernyataan['is_valid'] === true)
+                                <span class="valid-yes">Valid</span>
+                            @elseif($pernyataan['is_valid'] === false)
+                                <span class="valid-no">Tidak Valid</span>
+                            @else
+                                <span class="valid-null">Belum Ditinjau</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($pernyataan['catatan'])
+                                <span class="catatan-text">{{ $pernyataan['catatan'] }}</span>
+                            @else
+                                -
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endforeach
     </div>
     @endif
 

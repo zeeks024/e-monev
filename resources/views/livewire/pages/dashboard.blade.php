@@ -3,6 +3,8 @@
 use App\Models\BadanPublik;
 use App\Models\HasilPenilaian;
 use App\Models\Jadwal;
+use App\Models\Jawaban;
+use App\Models\Submission;
 use App\Services\PenilaianService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Component;
@@ -13,6 +15,7 @@ new #[Layout('components.layouts.app')] class extends Component
     public $jadwalAcuan = null;
     public $hasilPenilaian = null;
     public array $nilaiKategori = [];
+    public array $catatanValidasi = [];
 
     public function mount(): void
     {
@@ -36,7 +39,39 @@ new #[Layout('components.layouts.app')] class extends Component
                         'nilai' => $item['nilai'],
                     ];
                 })->values()->all();
+
+            $this->catatanValidasi = $this->loadCatatanValidasi($user->id, $this->jadwalAcuan->id);
         }
+    }
+
+    private function loadCatatanValidasi(int $userId, int $jadwalId): array
+    {
+        $submissionIds = Submission::where('user_id', $userId)
+            ->where('jadwal_id', $jadwalId)
+            ->pluck('id');
+
+        if ($submissionIds->isEmpty()) {
+            return [];
+        }
+
+        $jawabans = Jawaban::with(['jadwalPertanyaan', 'submission.kategori'])
+            ->whereIn('submission_id', $submissionIds)
+            ->whereNotNull('catatan')
+            ->where('catatan', '!=', '')
+            ->get();
+
+        if ($jawabans->isEmpty()) {
+            return [];
+        }
+
+        return $jawabans
+            ->groupBy(fn($j) => $j->submission->kategori->nama ?? 'Lainnya')
+            ->map(fn($group) => $group->map(fn($j) => [
+                'pertanyaan' => $j->jadwalPertanyaan->teks_pertanyaan ?? '-',
+                'is_valid' => $j->is_valid,
+                'catatan' => $j->catatan,
+            ])->values()->all())
+            ->all();
     }
 
     public function logout(): void
@@ -111,6 +146,33 @@ new #[Layout('components.layouts.app')] class extends Component
                         </tbody>
                     </table>
                 </div>
+            @if(!empty($catatanValidasi))
+                <div class="mt-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Catatan Validasi</h2>
+                    @foreach($catatanValidasi as $kategoriNama => $catatanList)
+                    <div class="mb-4">
+                        <h3 class="text-sm font-semibold text-blue-700 mb-2">{{ $kategoriNama }}</h3>
+                        <div class="space-y-2">
+                            @foreach($catatanList as $item)
+                            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <p class="text-sm text-gray-800 mb-1">{{ $item['pertanyaan'] }}</p>
+                                <div class="flex items-start gap-2">
+                                    @if($item['is_valid'] === true)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Valid</span>
+                                    @elseif($item['is_valid'] === false)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">Tidak Valid</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">Belum Ditinjau</span>
+                                    @endif
+                                    <p class="text-sm text-gray-600 italic">{{ $item['catatan'] }}</p>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+                @endif
             </div>
 
             <div class="bg-white p-8 rounded-lg shadow-md space-y-8">
