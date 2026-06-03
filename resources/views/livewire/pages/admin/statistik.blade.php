@@ -110,7 +110,17 @@ new #[Layout('components.layouts.admin')] class extends Component
         unset($this->bottomBadanPublik);
         unset($this->perQuestionStatistics);
         unset($this->verificationProgress);
-        $this->js('setTimeout(() => { if (window.initCharts) window.initCharts(); }, 100)');
+
+        $data = json_encode([
+            'perCategoryScores' => $this->perCategoryScores->values()->toArray(),
+            'overallDistribution' => $this->overallDistribution->values()->toArray(),
+            'topBadanPublik' => $this->topBadanPublik->values()->toArray(),
+            'bottomBadanPublik' => $this->bottomBadanPublik->values()->toArray(),
+            'perQuestionStatistics' => $this->perQuestionStatistics->values()->toArray(),
+            'yearOverYearTrends' => $this->yearOverYearTrends->values()->toArray(),
+        ]);
+
+        $this->js("setTimeout(() => { if (window.initCharts) window.initCharts({$data}); }, 100)");
     }
 }; ?>
 
@@ -450,16 +460,15 @@ new #[Layout('components.layouts.admin')] class extends Component
         });
     }
 
-    function initCharts() {
+    function initCharts(data) {
         destroyExistingCharts();
 
-        const raw = $wire.perCategoryScores;
-        const perCategoryScores = Array.isArray(raw) ? raw : [];
-        const overallDistribution = $wire.overallDistribution || [];
-        const topBadanPublik = $wire.topBadanPublik || [];
-        const bottomBadanPublik = $wire.bottomBadanPublik || [];
-        const perQuestionStatistics = $wire.perQuestionStatistics || [];
-        const yearOverYearTrends = $wire.yearOverYearTrends || [];
+        const perCategoryScores = data?.perCategoryScores ?? @js($this->perCategoryScores);
+        const overallDistribution = data?.overallDistribution ?? @js($this->overallDistribution);
+        const topBadanPublik = data?.topBadanPublik ?? @js($this->topBadanPublik);
+        const bottomBadanPublik = data?.bottomBadanPublik ?? @js($this->bottomBadanPublik);
+        const perQuestionStatistics = data?.perQuestionStatistics ?? @js($this->perQuestionStatistics);
+        const yearOverYearTrends = data?.yearOverYearTrends ?? @js($this->yearOverYearTrends);
 
         // 1. Per Category Scores — Grouped Bar Chart
         if (perCategoryScores.length > 0) {
