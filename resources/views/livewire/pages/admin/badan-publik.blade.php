@@ -204,12 +204,7 @@ new #[Layout('components.layouts.admin')] class extends Component
 
 <div>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-gray-900">Badan Publik</h1>
-            <button wire:click="openCreateModal" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition">
-                + Tambah Pengguna
-            </button>
-        </div>
+        <h1 class="text-3xl font-bold text-gray-900">Badan Publik</h1>
     </x-slot>
 
     <main class="p-8">
@@ -222,7 +217,11 @@ new #[Layout('components.layouts.admin')] class extends Component
         <div class="bg-white p-6 rounded-lg shadow-md">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-800">Daftar Badan Publik</h2>
-                <div class="relative">
+                <div class="flex items-center gap-3">
+                    <button wire:click="openCreateModal" class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition">
+                        + Tambah
+                    </button>
+                    <div class="relative">
                     <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nama, email, atau badan publik..."
                            class="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 w-80">
                     <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -230,6 +229,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                     </svg>
                 </div>
             </div>
+        </div>
 
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
