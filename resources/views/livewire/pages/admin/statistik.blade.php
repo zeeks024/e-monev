@@ -152,6 +152,7 @@ new #[Layout('components.layouts.admin')] class extends Component
         unset($this->filteredTopBadanPublik);
         unset($this->filteredBottomBadanPublik);
         unset($this->filteredPerQuestionStatistics);
+        $this->dispatch('charts-update');
     }
 
     public function updatedKlasifikasiFilter(): void
@@ -890,5 +891,7 @@ new #[Layout('components.layouts.admin')] class extends Component
     }
 
     initCharts();
+
+    $wire.on('charts-update', () => initCharts());
 </script>
 @endscript
