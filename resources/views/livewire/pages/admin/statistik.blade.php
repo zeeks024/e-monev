@@ -453,12 +453,12 @@ new #[Layout('components.layouts.admin')] class extends Component
     function initCharts() {
         destroyExistingCharts();
 
-        const perCategoryScores = @js($this->perCategoryScores);
-        const overallDistribution = @js($this->overallDistribution);
-        const topBadanPublik = @js($this->topBadanPublik);
-        const bottomBadanPublik = @js($this->bottomBadanPublik);
-        const perQuestionStatistics = @js($this->perQuestionStatistics);
-        const yearOverYearTrends = @js($this->yearOverYearTrends);
+        const perCategoryScores = $wire.get('perCategoryScores') || [];
+        const overallDistribution = $wire.get('overallDistribution') || [];
+        const topBadanPublik = $wire.get('topBadanPublik') || [];
+        const bottomBadanPublik = $wire.get('bottomBadanPublik') || [];
+        const perQuestionStatistics = $wire.get('perQuestionStatistics') || [];
+        const yearOverYearTrends = $wire.get('yearOverYearTrends') || [];
 
         // 1. Per Category Scores — Grouped Bar Chart
         if (perCategoryScores.length > 0) {
