@@ -792,12 +792,8 @@ new #[Layout('components.layouts.admin')] class extends Component
 
     initCharts();
 
-    document.addEventListener('livewire:initialized', () => {
-        Livewire.hook('morph.updated', ({ component }) => {
-            if (component && component.name === 'pages.admin.statistik') {
-                setTimeout(() => initCharts(), 50);
-            }
-        });
+    $wire.$watch('jadwalId', () => {
+        setTimeout(() => initCharts(), 50);
     });
 </script>
 @endscript
