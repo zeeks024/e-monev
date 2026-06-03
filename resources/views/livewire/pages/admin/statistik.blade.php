@@ -10,6 +10,7 @@ new #[Layout('components.layouts.admin')] class extends Component
 {
     public ?int $jadwalId = null;
     public ?int $selectedJadwalId = null;
+    public array $chartData = [];
 
     public function mount(): void
     {
@@ -19,6 +20,19 @@ new #[Layout('components.layouts.admin')] class extends Component
             ->value('id')
             ?? Jadwal::query()->latest('tanggal_mulai')->value('id');
         $this->selectedJadwalId = $this->jadwalId;
+        $this->loadChartData();
+    }
+
+    private function loadChartData(): void
+    {
+        $this->chartData = [
+            'perCategoryScores' => $this->perCategoryScores->values()->toArray(),
+            'overallDistribution' => $this->overallDistribution->values()->toArray(),
+            'topBadanPublik' => $this->topBadanPublik->values()->toArray(),
+            'bottomBadanPublik' => $this->bottomBadanPublik->values()->toArray(),
+            'perQuestionStatistics' => $this->perQuestionStatistics->values()->toArray(),
+            'yearOverYearTrends' => $this->yearOverYearTrends->values()->toArray(),
+        ];
     }
 
     public function with(): array
@@ -110,8 +124,8 @@ new #[Layout('components.layouts.admin')] class extends Component
         unset($this->bottomBadanPublik);
         unset($this->perQuestionStatistics);
         unset($this->verificationProgress);
-
-        $this->js('window.location.reload()');
+        $this->loadChartData();
+        $this->js('if (window.initCharts) window.initCharts();');
     }
 }; ?>
 
@@ -451,15 +465,16 @@ new #[Layout('components.layouts.admin')] class extends Component
         });
     }
 
-    function initCharts(data) {
+    function initCharts() {
         destroyExistingCharts();
 
-        const perCategoryScores = data?.perCategoryScores ?? @js($this->perCategoryScores);
-        const overallDistribution = data?.overallDistribution ?? @js($this->overallDistribution);
-        const topBadanPublik = data?.topBadanPublik ?? @js($this->topBadanPublik);
-        const bottomBadanPublik = data?.bottomBadanPublik ?? @js($this->bottomBadanPublik);
-        const perQuestionStatistics = data?.perQuestionStatistics ?? @js($this->perQuestionStatistics);
-        const yearOverYearTrends = data?.yearOverYearTrends ?? @js($this->yearOverYearTrends);
+        const data = $wire.chartData || {};
+        const perCategoryScores = data.perCategoryScores || [];
+        const overallDistribution = data.overallDistribution || [];
+        const topBadanPublik = data.topBadanPublik || [];
+        const bottomBadanPublik = data.bottomBadanPublik || [];
+        const perQuestionStatistics = data.perQuestionStatistics || [];
+        const yearOverYearTrends = data.yearOverYearTrends || [];
 
         // 1. Per Category Scores — Grouped Bar Chart
         if (perCategoryScores.length > 0) {
