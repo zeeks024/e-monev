@@ -548,6 +548,11 @@ new #[Layout('components.layouts.admin')] class extends Component
             });
         }
         window.statistikCharts = [];
+        // Clear chart containers so old SVGs don't stack
+        ['chart-per-category', 'chart-distribution', 'chart-top-bp', 'chart-bottom-bp', 'chart-per-question', 'chart-yoy-trends'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        });
     }
 
     function initCharts() {
@@ -892,6 +897,8 @@ new #[Layout('components.layouts.admin')] class extends Component
 
     initCharts();
 
-    $wire.on('charts-update', () => initCharts());
+    Livewire.on('charts-update', () => {
+        setTimeout(() => initCharts(), 50);
+    });
 </script>
 @endscript
