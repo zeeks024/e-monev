@@ -14,7 +14,11 @@ new #[Layout('components.layouts.admin')] class extends Component
 
     public function mount(): void
     {
-        $this->jadwalId = Jadwal::query()->latest('tanggal_mulai')->value('id');
+        $this->jadwalId = Jadwal::query()
+            ->whereHas('hasilPenilaians', fn($q) => $q->whereNotNull('nilai_akhir'))
+            ->latest('tanggal_mulai')
+            ->value('id')
+            ?? Jadwal::query()->latest('tanggal_mulai')->value('id');
     }
 
     public function with(): array
