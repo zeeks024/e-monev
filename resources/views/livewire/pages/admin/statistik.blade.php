@@ -9,6 +9,7 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.admin')] class extends Component
 {
     public ?int $jadwalId = null;
+    public ?int $selectedJadwalId = null;
 
     public function mount(): void
     {
@@ -17,6 +18,7 @@ new #[Layout('components.layouts.admin')] class extends Component
             ->latest('tanggal_mulai')
             ->value('id')
             ?? Jadwal::query()->latest('tanggal_mulai')->value('id');
+        $this->selectedJadwalId = $this->jadwalId;
     }
 
     public function with(): array
@@ -99,8 +101,9 @@ new #[Layout('components.layouts.admin')] class extends Component
         return app(StatistikService::class)->getVerificationProgress($this->jadwalId);
     }
 
-    public function updatedJadwalId(): void
+    public function gantiPeriode(): void
     {
+        $this->jadwalId = $this->selectedJadwalId;
         unset($this->perCategoryScores);
         unset($this->overallDistribution);
         unset($this->topBadanPublik);
@@ -116,17 +119,22 @@ new #[Layout('components.layouts.admin')] class extends Component
         <div class="flex items-center justify-between">
             <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
             <div class="flex items-center space-x-3">
-                <label for="jadwal-select" class="text-sm font-medium text-gray-600">Periode Jadwal:</label>
+                <label for="jadwal-select" class="text-sm font-medium text-gray-600">Ganti Periode</label>
                 <select
                     id="jadwal-select"
-                    wire:model.live="jadwalId"
+                    wire:model="selectedJadwalId"
                     class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                    <option value="">-- Pilih Jadwal --</option>
                     @foreach($jadwals as $jadwal)
                         <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
                     @endforeach
                 </select>
+                <button
+                    wire:click="gantiPeriode"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    Ganti
+                </button>
             </div>
         </div>
     </x-slot>
