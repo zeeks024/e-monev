@@ -213,16 +213,17 @@ class StatistikService
     }
 
     /**
-     * 7. Verification progress: how many submissions verified vs total for a jadwal.
+     * 7. Verification progress: how many participants scored vs verified for a jadwal.
      * Returns: [total_submissions, verified_submissions, unverified_submissions, verification_percentage]
      */
     public function getVerificationProgress(int $jadwalId): array
     {
-        $total = Submission::query()
+        $total = HasilPenilaian::query()
             ->where('jadwal_id', $jadwalId)
+            ->whereNotNull('nilai_akhir')
             ->count();
 
-        $verified = Submission::query()
+        $verified = HasilPenilaian::query()
             ->where('jadwal_id', $jadwalId)
             ->where('status_verifikasi', 'Terverifikasi')
             ->count();

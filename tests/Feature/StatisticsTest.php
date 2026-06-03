@@ -134,8 +134,8 @@ test('get_verification_progress returns correct verified total counts', function
     $user1 = User::factory()->create(['role' => 'dinas']);
     $user2 = User::factory()->create(['role' => 'dinas']);
 
-    Submission::create(['user_id' => $user1->id, 'kategori_id' => $kategori->id, 'jadwal_id' => $jadwal->id, 'status_verifikasi' => 'Terverifikasi', 'tanggal_submit' => now()]);
-    Submission::create(['user_id' => $user2->id, 'kategori_id' => $kategori->id, 'jadwal_id' => $jadwal->id, 'status_verifikasi' => 'Menunggu', 'tanggal_submit' => now()]);
+    HasilPenilaian::create(['user_id' => $user1->id, 'jadwal_id' => $jadwal->id, 'nilai_akhir' => 80, 'status_verifikasi' => 'Terverifikasi', 'verified_at' => now()]);
+    HasilPenilaian::create(['user_id' => $user2->id, 'jadwal_id' => $jadwal->id, 'nilai_akhir' => 60, 'status_verifikasi' => 'Menunggu']);
 
     $progress = app(StatistikService::class)->getVerificationProgress($jadwal->id);
 
