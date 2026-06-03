@@ -110,7 +110,7 @@ new #[Layout('components.layouts.admin')] class extends Component
         unset($this->bottomBadanPublik);
         unset($this->perQuestionStatistics);
         unset($this->verificationProgress);
-        $this->dispatch('charts-update');
+        $this->js('setTimeout(() => { if (window.initCharts) window.initCharts(); }, 100)');
     }
 }; ?>
 
@@ -453,12 +453,13 @@ new #[Layout('components.layouts.admin')] class extends Component
     function initCharts() {
         destroyExistingCharts();
 
-        const perCategoryScores = $wire.get('perCategoryScores') || [];
-        const overallDistribution = $wire.get('overallDistribution') || [];
-        const topBadanPublik = $wire.get('topBadanPublik') || [];
-        const bottomBadanPublik = $wire.get('bottomBadanPublik') || [];
-        const perQuestionStatistics = $wire.get('perQuestionStatistics') || [];
-        const yearOverYearTrends = $wire.get('yearOverYearTrends') || [];
+        const raw = $wire.perCategoryScores;
+        const perCategoryScores = Array.isArray(raw) ? raw : [];
+        const overallDistribution = $wire.overallDistribution || [];
+        const topBadanPublik = $wire.topBadanPublik || [];
+        const bottomBadanPublik = $wire.bottomBadanPublik || [];
+        const perQuestionStatistics = $wire.perQuestionStatistics || [];
+        const yearOverYearTrends = $wire.yearOverYearTrends || [];
 
         // 1. Per Category Scores — Grouped Bar Chart
         if (perCategoryScores.length > 0) {
@@ -790,10 +791,7 @@ new #[Layout('components.layouts.admin')] class extends Component
         }
     }
 
+    window.initCharts = initCharts;
     initCharts();
-
-    $wire.$watch('jadwalId', () => {
-        setTimeout(() => initCharts(), 50);
-    });
 </script>
 @endscript
