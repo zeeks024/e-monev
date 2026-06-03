@@ -9,8 +9,6 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.admin')] class extends Component
 {
     public ?int $jadwalId = null;
-    public string $klasifikasiFilter = '';
-    public string $searchBadanPublik = '';
 
     public function mount(): void
     {
@@ -71,40 +69,6 @@ new #[Layout('components.layouts.admin')] class extends Component
     }
 
     #[Computed]
-    public function filteredTopBadanPublik(): \Illuminate\Support\Collection
-    {
-        $data = $this->topBadanPublik;
-
-        if ($this->klasifikasiFilter !== '') {
-            $data = $data->where('klasifikasi', $this->klasifikasiFilter);
-        }
-
-        if ($this->searchBadanPublik !== '') {
-            $term = strtolower($this->searchBadanPublik);
-            $data = $data->filter(fn ($item) => str_contains(strtolower($item['nama_badan_publik']), $term));
-        }
-
-        return $data->values();
-    }
-
-    #[Computed]
-    public function filteredBottomBadanPublik(): \Illuminate\Support\Collection
-    {
-        $data = $this->bottomBadanPublik;
-
-        if ($this->klasifikasiFilter !== '') {
-            $data = $data->where('klasifikasi', $this->klasifikasiFilter);
-        }
-
-        if ($this->searchBadanPublik !== '') {
-            $term = strtolower($this->searchBadanPublik);
-            $data = $data->filter(fn ($item) => str_contains(strtolower($item['nama_badan_publik']), $term));
-        }
-
-        return $data->values();
-    }
-
-    #[Computed]
     public function perQuestionStatistics(): \Illuminate\Support\Collection
     {
         if (! $this->jadwalId) {
@@ -112,12 +76,6 @@ new #[Layout('components.layouts.admin')] class extends Component
         }
 
         return app(StatistikService::class)->getPerQuestionStatistics($this->jadwalId);
-    }
-
-    #[Computed]
-    public function filteredPerQuestionStatistics(): \Illuminate\Support\Collection
-    {
-        return $this->perQuestionStatistics;
     }
 
     #[Computed]
@@ -149,86 +107,26 @@ new #[Layout('components.layouts.admin')] class extends Component
         unset($this->bottomBadanPublik);
         unset($this->perQuestionStatistics);
         unset($this->verificationProgress);
-        unset($this->filteredTopBadanPublik);
-        unset($this->filteredBottomBadanPublik);
-        unset($this->filteredPerQuestionStatistics);
         $this->dispatch('charts-update');
-    }
-
-    public function updatedKlasifikasiFilter(): void
-    {
-        unset($this->filteredTopBadanPublik);
-        unset($this->filteredBottomBadanPublik);
-    }
-
-    public function updatedSearchBadanPublik(): void
-    {
-        unset($this->filteredTopBadanPublik);
-        unset($this->filteredBottomBadanPublik);
-    }
-
-    public function resetFilters(): void
-    {
-        $this->jadwalId = Jadwal::query()->latest('tanggal_mulai')->value('id');
-        $this->klasifikasiFilter = '';
-        $this->searchBadanPublik = '';
-        unset($this->perCategoryScores);
-        unset($this->overallDistribution);
-        unset($this->topBadanPublik);
-        unset($this->bottomBadanPublik);
-        unset($this->perQuestionStatistics);
-        unset($this->verificationProgress);
-        unset($this->filteredTopBadanPublik);
-        unset($this->filteredBottomBadanPublik);
-        unset($this->filteredPerQuestionStatistics);
     }
 }; ?>
 
 <div>
     <x-slot name="header">
-        <div class="flex flex-col space-y-4">
-            <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
-                <div class="flex items-center space-x-3">
-                    <label for="jadwal-select" class="text-sm font-medium text-gray-600">Periode Jadwal:</label>
-                    <select
-                        id="jadwal-select"
-                        wire:model.live="jadwalId"
-                        class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="">-- Pilih Jadwal --</option>
-                        @foreach($jadwals as $jadwal)
-                            <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center justify-between">
+            <h1 class="text-3xl font-bold text-gray-900">Statistik</h1>
+            <div class="flex items-center space-x-3">
+                <label for="jadwal-select" class="text-sm font-medium text-gray-600">Periode Jadwal:</label>
                 <select
-                    wire:model.live="klasifikasiFilter"
-                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    id="jadwal-select"
+                    wire:model.live="jadwalId"
+                    class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                    <option value="">Semua Klasifikasi</option>
-                    <option value="Sangat Baik">Sangat Baik</option>
-                    <option value="Baik">Baik</option>
-                    <option value="Cukup">Cukup</option>
-                    <option value="Kurang">Kurang</option>
+                    <option value="">-- Pilih Jadwal --</option>
+                    @foreach($jadwals as $jadwal)
+                        <option value="{{ $jadwal->id }}">{{ $jadwal->nama }} ({{ $jadwal->tahun }})</option>
+                    @endforeach
                 </select>
-                <div class="relative">
-                    <input
-                        wire:model.live.debounce.300ms="searchBadanPublik"
-                        type="text"
-                        placeholder="Cari Badan Publik..."
-                        class="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
-                <button
-                    wire:click="resetFilters"
-                    class="px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                    Reset Filter
-                </button>
             </div>
         </div>
     </x-slot>
@@ -380,7 +278,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
-                                    @forelse($this->filteredTopBadanPublik as $item)
+                                    @forelse($this->topBadanPublik as $item)
                                         <tr>
                                             <td class="px-4 py-2 text-sm text-gray-500">{{ $item['rank'] }}</td>
                                             <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ $item['nama_badan_publik'] }}</td>
@@ -421,7 +319,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
-                                    @forelse($this->filteredBottomBadanPublik as $item)
+                                    @forelse($this->bottomBadanPublik as $item)
                                         <tr>
                                             <td class="px-4 py-2 text-sm text-gray-500">{{ $item['rank'] }}</td>
                                             <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ $item['nama_badan_publik'] }}</td>
@@ -446,14 +344,6 @@ new #[Layout('components.layouts.admin')] class extends Component
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Statistik per Pertanyaan</h2>
                 <div id="chart-per-question" class="min-h-[300px] mb-6"></div>
-                @if($klasifikasiFilter !== '' || $searchBadanPublik !== '')
-                    <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm text-blue-700">
-                        Filter aktif:
-                        @if($klasifikasiFilter !== '')<span class="font-medium">Klasifikasi: {{ $klasifikasiFilter }}</span>@endif
-                        @if($klasifikasiFilter !== '' && $searchBadanPublik !== '') &middot; @endif
-                        @if($searchBadanPublik !== '')<span class="font-medium">Pencarian: "{{ $searchBadanPublik }}"</span>@endif
-                    </div>
-                @endif
                 <div wire:loading>
                     <div class="flex items-center justify-center py-8">
                         <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -472,7 +362,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
-                                @forelse($this->filteredPerQuestionStatistics as $index => $q)
+                                @forelse($this->perQuestionStatistics as $index => $q)
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-gray-500">{{ $index + 1 }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-900 max-w-md truncate">{{ $q['teks_pertanyaan'] }}</td>
@@ -560,9 +450,9 @@ new #[Layout('components.layouts.admin')] class extends Component
 
         const perCategoryScores = @js($this->perCategoryScores);
         const overallDistribution = @js($this->overallDistribution);
-        const topBadanPublik = @js($this->filteredTopBadanPublik);
-        const bottomBadanPublik = @js($this->filteredBottomBadanPublik);
-        const perQuestionStatistics = @js($this->filteredPerQuestionStatistics);
+        const topBadanPublik = @js($this->topBadanPublik);
+        const bottomBadanPublik = @js($this->bottomBadanPublik);
+        const perQuestionStatistics = @js($this->perQuestionStatistics);
         const yearOverYearTrends = @js($this->yearOverYearTrends);
 
         // 1. Per Category Scores — Grouped Bar Chart
