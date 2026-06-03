@@ -60,6 +60,16 @@ Route::middleware('admin')->group(function () {
     Volt::route('/penilaian', 'pages.admin.penilaian')->name('penilaian');
     Volt::route('/penilaian/{user}/jadwal/{jadwal}/verifikasi', 'pages.admin.verifikasi-nilai')->name('penilaian.verifikasi');
 
+    // --- Statistik ---
+    // URL: /admin/statistik
+    // Nama: admin.statistik
+    Volt::route('/statistik', 'pages.admin.statistik')->name('statistik');
+
+    // --- Pengguna ---
+    // URL: /admin/pengguna
+    // Nama: admin.pengguna
+    Volt::route('/pengguna', 'pages.admin.pengguna')->name('pengguna');
+
     // --- Badan Publik ---
     // URL: /admin/badan-publik
     // Nama: admin.badan-publik
