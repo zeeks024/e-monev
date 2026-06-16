@@ -158,7 +158,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                         @if($jadwalPertanyaan->butuh_upload)
                                             <div>
                                                 <input type="file" class="text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                                                <p class="text-xs text-red-500 mt-1">*Mendukung ekstensi pdf (Maks 2MB)</p>
+                                                <p class="text-xs text-red-500 mt-1">*Mendukung ekstensi pdf (Maks 20MB)</p>
                                             </div>
                                         @else
                                             <span class="text-gray-400">-</span>

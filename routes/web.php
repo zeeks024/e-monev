@@ -2,6 +2,7 @@
 
 //use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuth;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\LaporanController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LandingPageController;
 use Livewire\Volt\Volt;
@@ -58,7 +59,11 @@ Route::get('/', function () {
 // Rute untuk dashboard utama setelah login
 Volt::route('/dashboard', 'pages.dashboard')
     ->middleware(['auth', 'verified'])
-    ->name('user.dashboard');
+    ->name('dashboard');
+
+Route::get('/laporan/unduh/{jadwalId}', [LaporanController::class, 'unduhPdfDinas'])
+    ->middleware(['auth', 'verified'])
+    ->name('laporan.unduh.saya');
     
 // Rute untuk halaman ubah biodata
 Volt::route('/biodata/edit', 'pages.edit-biodata')
@@ -92,9 +97,6 @@ Volt::route('/forgot-password/verify-code', 'pages.auth.verify-code')
 // Rute untuk halaman sukses setelah reset password
 Volt::route('/reset-password/success', 'pages.auth.password-reset-success')
     ->name('password.update.success');
-
-Volt::route('/notifikasi', 'pages.notifikasi')
-    ->name('notifikasi');
 
 
 // Rute untuk profil pengguna

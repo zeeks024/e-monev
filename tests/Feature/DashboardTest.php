@@ -45,6 +45,8 @@ test('dashboard shows user badan publik data when available', function () {
         'telepon_badan_publik' => '0286-123456',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081111111111',
+        'jabatan' => 'Staff',
     ]);
 
     $this->actingAs($user);

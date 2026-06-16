@@ -22,7 +22,7 @@ class RedirectIfAuthenticated
                 }
 
                 // Jika tidak, arahkan ke dashboard user biasa (dinas).
-                return redirect(route('user.dashboard'));
+                return redirect(route('dashboard'));
             }
         }
 

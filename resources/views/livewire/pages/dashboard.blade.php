@@ -124,6 +124,31 @@ new #[Layout('components.layouts.app')] class extends Component
                     </div>
                 </div>
 
+                <div class="mt-6 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-gray-900">Laporan Hasil Penilaian</p>
+                        <p class="text-sm text-gray-600">
+                            @if($hasilPenilaian && $hasilPenilaian->status_verifikasi === 'Terverifikasi' && $jadwalAcuan)
+                                Laporan PDF untuk periode ini sudah tersedia dan bisa diunduh.
+                            @else
+                                Laporan PDF akan tersedia setelah hasil penilaian dinyatakan terverifikasi.
+                            @endif
+                        </p>
+                    </div>
+
+                    @if($hasilPenilaian && $hasilPenilaian->status_verifikasi === 'Terverifikasi' && $jadwalAcuan)
+                        <a href="{{ route('laporan.unduh.saya', ['jadwalId' => $jadwalAcuan->id]) }}"
+                           target="_blank"
+                           class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                            Unduh Laporan PDF
+                        </a>
+                    @else
+                        <span class="inline-flex items-center justify-center rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-500">
+                            Laporan Belum Tersedia
+                        </span>
+                    @endif
+                </div>
+
                 <div class="mt-6 overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -176,24 +201,37 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <div class="bg-white p-8 rounded-lg shadow-md space-y-8">
-                @php
-                    function dataItem($label, $value) {
-                        echo '<div class="py-3 px-4 border border-gray-200 rounded-md">';
-                        echo '<p class="text-sm text-gray-500">' . htmlspecialchars($label) . '</p>';
-                        echo '<p class="font-medium text-gray-800">' . htmlspecialchars($value ?? '-') . '</p>';
-                        echo '</div>';
-                    }
-                @endphp
-
                 <fieldset>
-                    <legend class="text-lg font-semibold text-gray-900 mb-4">Data Badan Publik</legend>
+                    <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <legend class="text-lg font-semibold text-gray-900">Data Badan Publik</legend>
+                        <a href="{{ route('biodata.edit') }}"
+                           wire:navigate
+                           class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                            Edit Biodata
+                        </a>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {{ dataItem('Nama Badan Publik', $badanPublik->nama_badan_publik ?? '-') }}
-                        {{ dataItem('Website', $badanPublik->website ?? '-') }}
-                        {{ dataItem('No. Telepon', $badanPublik->telepon_badan_publik ?? '-') }}
-                        {{ dataItem('Email', $badanPublik->email_badan_publik ?? '-') }}
+                        <div class="py-3 px-4 border border-gray-200 rounded-md">
+                            <p class="text-sm text-gray-500">Nama Badan Publik</p>
+                            <p class="font-medium text-gray-800">{{ $badanPublik->nama_badan_publik ?? '-' }}</p>
+                        </div>
+                        <div class="py-3 px-4 border border-gray-200 rounded-md">
+                            <p class="text-sm text-gray-500">Website</p>
+                            <p class="font-medium text-gray-800">{{ $badanPublik->website ?? '-' }}</p>
+                        </div>
+                        <div class="py-3 px-4 border border-gray-200 rounded-md">
+                            <p class="text-sm text-gray-500">No. Telepon</p>
+                            <p class="font-medium text-gray-800">{{ $badanPublik->telepon_badan_publik ?? '-' }}</p>
+                        </div>
+                        <div class="py-3 px-4 border border-gray-200 rounded-md">
+                            <p class="text-sm text-gray-500">Email</p>
+                            <p class="font-medium text-gray-800">{{ $badanPublik->email_badan_publik ?? '-' }}</p>
+                        </div>
                         <div class="md:col-span-2">
-                            {{ dataItem('Alamat', $badanPublik->alamat ?? '-') }}
+                            <div class="py-3 px-4 border border-gray-200 rounded-md">
+                                <p class="text-sm text-gray-500">Alamat</p>
+                                <p class="font-medium text-gray-800">{{ $badanPublik->alamat ?? '-' }}</p>
+                            </div>
                         </div>
                     </div>
                 </fieldset>

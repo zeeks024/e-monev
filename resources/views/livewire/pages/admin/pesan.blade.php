@@ -1,8 +1,13 @@
 <?php
 
 use Livewire\Volt\Component;
+use App\Mail\AdminPesanMail;
+use App\Models\HasilPenilaian;
+use App\Models\Jadwal;
 use App\Models\Pesan;
+use App\Models\Submission;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
 
@@ -11,8 +16,12 @@ new #[Layout('components.layouts.admin')] class extends Component
     use WithPagination;
 
     // Form properties
+    public $kanal = 'aplikasi';
     public $judul = '';
     public $isi = '';
+    public $targetMode = 'semua';
+    public array $targetUserIds = [];
+    public $targetCondition = 'belum_mengisi';
 
     // CRUD properties
     public ?Pesan $selectedPesan = null;
@@ -38,29 +47,156 @@ new #[Layout('components.layouts.admin')] class extends Component
             ->paginate(10);
     }
 
+    public function getDinasOptionsProperty()
+    {
+        return User::query()
+            ->with('badanPublik')
+            ->where('role', 'dinas')
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function getJadwalAcuan(): ?Jadwal
+    {
+        return Jadwal::active()->first() ?? Jadwal::latest('tanggal_mulai')->first();
+    }
+
+    private function getTargetUsers()
+    {
+        $query = User::query()
+            ->with('badanPublik')
+            ->where('role', 'dinas');
+
+        if ($this->targetMode === 'tertentu') {
+            return $query->whereIn('id', $this->targetUserIds)->get();
+        }
+
+        if ($this->targetMode !== 'kondisi') {
+            return $query->get();
+        }
+
+        $jadwal = $this->getJadwalAcuan();
+        if (!$jadwal) {
+            return collect();
+        }
+
+        return match ($this->targetCondition) {
+            'belum_mengisi' => $query->whereDoesntHave('submissions', function ($submissionQuery) use ($jadwal) {
+                $submissionQuery->where('jadwal_id', $jadwal->id);
+            })->get(),
+            'sudah_mengisi' => $query->whereHas('submissions', function ($submissionQuery) use ($jadwal) {
+                $submissionQuery->where('jadwal_id', $jadwal->id);
+            })->get(),
+            'menunggu_verifikasi' => $query
+                ->whereHas('submissions', function ($submissionQuery) use ($jadwal) {
+                    $submissionQuery->where('jadwal_id', $jadwal->id);
+                })
+                ->whereDoesntHave('hasilPenilaians', function ($hasilQuery) use ($jadwal) {
+                    $hasilQuery->where('jadwal_id', $jadwal->id)
+                        ->where('status_verifikasi', 'Terverifikasi');
+                })
+                ->get(),
+            'terverifikasi' => $query->whereHas('hasilPenilaians', function ($hasilQuery) use ($jadwal) {
+                $hasilQuery->where('jadwal_id', $jadwal->id)
+                    ->where('status_verifikasi', 'Terverifikasi');
+            })->get(),
+            default => $query->get(),
+        };
+    }
+
     /**
      * Create a new message
      */
     public function kirimPesan()
     {
         $this->validate([
+            'kanal' => 'required|in:aplikasi,email,keduanya',
             'judul' => 'required|string|max:255',
             'isi' => 'required|string',
+            'targetMode' => 'required|in:semua,tertentu,kondisi',
+            'targetUserIds' => 'array',
+            'targetUserIds.*' => 'integer|exists:users,id',
+            'targetCondition' => 'required|in:belum_mengisi,sudah_mengisi,menunggu_verifikasi,terverifikasi',
         ]);
+
+        if ($this->targetMode === 'tertentu' && empty($this->targetUserIds)) {
+            $this->addError('targetUserIds', 'Pilih minimal satu akun dinas.');
+            return;
+        }
+
+        $kirimEmail = in_array($this->kanal, ['email', 'keduanya'], true);
+        $kirimAplikasi = in_array($this->kanal, ['aplikasi', 'keduanya'], true);
+        $users = $this->getTargetUsers();
+        $jumlahTarget = $users->count();
+
+        if ($users->isEmpty()) {
+            session()->flash('warning', 'Tidak ada akun dinas yang sesuai dengan target penerima.');
+            return;
+        }
 
         // Buat pesan baru
         $pesan = Pesan::create([
+            'jenis' => 'custom',
             'judul' => $this->judul,
             'isi' => $this->isi,
+            'kirim_email' => $kirimEmail,
+            'kirim_aplikasi' => $kirimAplikasi,
+            'jumlah_penerima' => $jumlahTarget,
         ]);
 
-        // Lampirkan pesan ini ke semua user 'dinas'
-        $users = User::where('role', 'dinas')->get();
-        $pesan->users()->attach($users->pluck('id'));
+        if ($kirimAplikasi && $users->isNotEmpty()) {
+            $pesan->users()->attach($users->pluck('id'));
+        }
+
+        $emailTerkirim = false;
+        $emailGagal = false;
+        $jumlahEmail = 0;
+        if ($kirimEmail && $users->isNotEmpty()) {
+            try {
+                $emails = $users->pluck('email')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (!empty($emails)) {
+                    Mail::to(config('mail.from.address'))
+                        ->bcc($emails)
+                        ->send(new AdminPesanMail($pesan, null, 'Bapak/Ibu Pengguna E-Monev KIP'));
+
+                    $emailTerkirim = true;
+                    $jumlahEmail = count($emails);
+                }
+            } catch (\Throwable $e) {
+                report($e);
+                $emailGagal = true;
+            }
+        }
+
+        if ($emailTerkirim) {
+            $pesan->update([
+                'email_dikirim_pada' => now(),
+                'jumlah_email_terkirim' => $jumlahEmail,
+            ]);
+        }
+
+        $selectedKanal = $this->kanal;
 
         // Reset form dan beri notifikasi sukses
-        $this->reset(['judul', 'isi']);
-        session()->flash('success', 'Pesan notifikasi berhasil dikirim ke semua PPID Pelaksana.');
+        $this->reset(['kanal', 'judul', 'isi', 'targetMode', 'targetUserIds', 'targetCondition']);
+        $this->kanal = 'aplikasi';
+        $this->targetMode = 'semua';
+        $this->targetCondition = 'belum_mengisi';
+        session()->flash(
+            $emailGagal ? 'warning' : 'success',
+            $emailGagal
+                ? 'Pesan berhasil disimpan, tetapi email gagal dikirim. Periksa konfigurasi mail server.'
+                : match ($selectedKanal) {
+                    'email' => 'Pesan email berhasil dikirim ke ' . $jumlahEmail . ' alamat.',
+                    'keduanya' => 'Pesan berhasil dikirim ke notifikasi aplikasi dan email untuk ' . $jumlahEmail . ' alamat.',
+                    default => 'Pesan notifikasi berhasil dikirim ke ' . $jumlahTarget . ' akun dinas di dalam aplikasi.',
+                }
+        );
     }
 
     /**
@@ -69,6 +205,9 @@ new #[Layout('components.layouts.admin')] class extends Component
     public function editPesan($id): void
     {
         $this->selectedPesan = Pesan::find($id);
+        $this->kanal = $this->selectedPesan->kirim_email && $this->selectedPesan->kirim_aplikasi
+            ? 'keduanya'
+            : ($this->selectedPesan->kirim_email ? 'email' : 'aplikasi');
         $this->judul = $this->selectedPesan->judul;
         $this->isi = $this->selectedPesan->isi;
         $this->isEditMode = true;
@@ -80,11 +219,18 @@ new #[Layout('components.layouts.admin')] class extends Component
     public function updatePesan(): void
     {
         $validated = $this->validate([
+            'kanal' => 'required|in:aplikasi,email,keduanya',
             'judul' => 'required|string|max:255',
             'isi' => 'required|string',
         ]);
 
-        $this->selectedPesan->update($validated);
+        $this->selectedPesan->update([
+            'jenis' => 'custom',
+            'judul' => $validated['judul'],
+            'isi' => $validated['isi'],
+            'kirim_email' => in_array($validated['kanal'], ['email', 'keduanya'], true),
+            'kirim_aplikasi' => in_array($validated['kanal'], ['aplikasi', 'keduanya'], true),
+        ]);
         session()->flash('success', 'Pesan berhasil diperbarui.');
         $this->cancelEdit();
     }
@@ -116,7 +262,10 @@ new #[Layout('components.layouts.admin')] class extends Component
      */
     public function cancelEdit(): void
     {
-        $this->reset(['judul', 'isi', 'selectedPesan', 'isEditMode']);
+        $this->reset(['kanal', 'judul', 'isi', 'targetMode', 'targetUserIds', 'targetCondition', 'selectedPesan', 'isEditMode']);
+        $this->kanal = 'aplikasi';
+        $this->targetMode = 'semua';
+        $this->targetCondition = 'belum_mengisi';
     }
 
     /**
@@ -154,6 +303,11 @@ new #[Layout('components.layouts.admin')] class extends Component
                 <p>{{ session('success') }}</p>
             </div>
         @endif
+        @if (session('warning'))
+            <div class="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-6" role="alert">
+                <p>{{ session('warning') }}</p>
+            </div>
+        @endif
 
         <!-- Daftar Pesan -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-8">
@@ -166,8 +320,10 @@ new #[Layout('components.layouts.admin')] class extends Component
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judul</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Channel</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Isi</th>
                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Penerima</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Email</th>
                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Tanggal Dibuat</th>
                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Aksi</th>
                             </tr>
@@ -181,13 +337,39 @@ new #[Layout('components.layouts.admin')] class extends Component
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                                         {{ $pesan->judul }}
                                     </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium
+                                            {{ $pesan->kirim_email && $pesan->kirim_aplikasi ? 'bg-indigo-100 text-indigo-800' : ($pesan->kirim_email ? 'bg-cyan-100 text-cyan-800' : 'bg-blue-100 text-blue-800') }}">
+                                            {{ $pesan->kirim_email && $pesan->kirim_aplikasi ? 'Keduanya' : ($pesan->kirim_email ? 'Email' : 'Aplikasi') }}
+                                        </span>
+                                    </td>
                                     <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                                         {{ \Illuminate\Support\Str::limit($pesan->isi, 100) }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                            {{ $pesan->users_count }} User
-                                        </span>
+                                        @php
+                                            $jumlahPenerima = $pesan->jumlah_penerima ?? ($pesan->kirim_aplikasi ? $pesan->users_count : null);
+                                        @endphp
+                                        @if($jumlahPenerima)
+                                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                                {{ $jumlahPenerima }} User
+                                            </span>
+                                        @else
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                                                Tidak ada
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                                        @if($pesan->kirim_email)
+                                            <span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
+                                                Dikirim
+                                            </span>
+                                        @else
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                                                Tidak
+                                            </span>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                                         {{ $pesan->created_at }}
@@ -236,7 +418,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                     {{ $isEditMode ? 'Edit Pesan Notifikasi' : 'Kirim Pesan Notifikasi' }}
                 </h2>
                 <p class="mt-1 text-sm text-gray-600">
-                    {{ $isEditMode ? 'Perbarui pesan notifikasi yang sudah ada.' : 'Kirim pemberitahuan penting kepada seluruh Badan Publik / PPID Pelaksana yang terdaftar di sistem E-Monev KIP.' }}
+                    {{ $isEditMode ? 'Perbarui pesan notifikasi yang sudah ada.' : 'Kirim pemberitahuan penting, peringatan, atau info deadline kepada seluruh akun dinas yang terdaftar di sistem E-Monev KIP.' }}
                 </p>
             </div>
 
@@ -250,11 +432,78 @@ new #[Layout('components.layouts.admin')] class extends Component
                         @error('judul') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
                     <div>
+                        <label for="kanal" class="block text-sm font-medium text-gray-700">Channel Pengiriman</label>
+                        <select wire:model="kanal" id="kanal"
+                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="aplikasi">Notifikasi aplikasi saja</option>
+                            <option value="email">Email saja</option>
+                            <option value="keduanya">Email + notifikasi aplikasi</option>
+                        </select>
+                        @error('kanal') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                    </div>
+                    @if(!$isEditMode)
+                        <div>
+                            <label for="targetMode" class="block text-sm font-medium text-gray-700">Target Penerima</label>
+                            <select wire:model.live="targetMode" id="targetMode"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="semua">Semua akun dinas</option>
+                                <option value="tertentu">Pilih akun dinas tertentu</option>
+                                <option value="kondisi">Akun dinas dengan kondisi tertentu</option>
+                            </select>
+                            @error('targetMode') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
+
+                        @if($targetMode === 'tertentu')
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <p class="text-sm font-medium text-gray-800 mb-3">Pilih Akun Dinas</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                                    @foreach($this->dinasOptions as $dinas)
+                                        <label class="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
+                                            <input wire:model="targetUserIds" type="checkbox" value="{{ $dinas->id }}" class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="min-w-0">
+                                                <span class="block text-sm font-medium text-gray-900">
+                                                    {{ $dinas->badanPublik->nama_badan_publik ?? $dinas->name }}
+                                                </span>
+                                                <span class="block text-xs text-gray-500 truncate">
+                                                    {{ $dinas->email }}
+                                                </span>
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @error('targetUserIds') <span class="text-red-500 text-xs mt-2 block">{{ $message }}</span> @enderror
+                            </div>
+                        @endif
+
+                        @if($targetMode === 'kondisi')
+                            <div>
+                                <label for="targetCondition" class="block text-sm font-medium text-gray-700">Kondisi Akun Dinas</label>
+                                <select wire:model="targetCondition" id="targetCondition"
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <option value="belum_mengisi">Belum mengisi kuesioner pada jadwal acuan</option>
+                                    <option value="sudah_mengisi">Sudah mengisi kuesioner pada jadwal acuan</option>
+                                    <option value="menunggu_verifikasi">Sudah mengisi dan belum terverifikasi</option>
+                                    <option value="terverifikasi">Hasil sudah terverifikasi</option>
+                                </select>
+                                @error('targetCondition') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                <p class="mt-2 text-xs text-gray-500">
+                                    Jadwal acuan memakai jadwal aktif. Jika tidak ada jadwal aktif, sistem memakai jadwal terbaru.
+                                </p>
+                            </div>
+                        @endif
+                    @endif
+                    <div>
                         <label for="isi" class="block text-sm font-medium text-gray-700">Isi Pesan</label>
                         <textarea wire:model="isi" id="isi" rows="8"
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="Masukkan isi pesan"></textarea>
+                            placeholder="Masukkan isi pesan atau peringatan yang ingin dikirim"></textarea>
                         @error('isi') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                    </div>
+                    <div class="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                        <p class="text-sm font-medium text-gray-800">Catatan pengiriman</p>
+                        <p class="mt-1 text-sm text-gray-600">
+                            Jika memilih channel email, sistem akan langsung mengirim email saat tombol kirim ditekan. Untuk jumlah pengguna sekitar 50 akun, mode ini masih cukup praktis.
+                        </p>
                     </div>
                 </div>
 

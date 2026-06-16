@@ -70,7 +70,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
         session()->flash('status', 'Biodata berhasil diperbarui!');
 
-        $this->redirect(route('user.dashboard'), navigate: true);
+        $this->redirect(route('dashboard'), navigate: true);
     }
 }; ?>
 
@@ -138,7 +138,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
                         <div class="pt-5">
                             <div class="flex justify-end space-x-3">
-                                <a href="{{ route('user.dashboard') }}" wire:navigate class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <a href="{{ route('dashboard') }}" wire:navigate class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
                                     Batal
                                 </a>
                                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
@@ -151,4 +151,3 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </main>
     </div>
-

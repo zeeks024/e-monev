@@ -22,7 +22,7 @@ new #[Layout('components.layouts.app')] class extends Component
      */
     public function cancel(): void
     {
-        $this->redirect(route('user.dashboard'), navigate: true);
+        $this->redirect(route('dashboard'), navigate: true);
     }
 }; ?>
 
@@ -46,4 +46,3 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </main>
     </div>
-

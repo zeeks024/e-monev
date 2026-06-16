@@ -35,7 +35,7 @@ test('users can authenticate with valid credentials', function () {
 
     $component
         ->assertHasNoErrors()
-        ->assertRedirect(route('user.dashboard', absolute: false));
+        ->assertRedirect(route('dashboard', absolute: false));
 
     $this->assertAuthenticated();
 });
@@ -52,7 +52,7 @@ test('user is redirected to dashboard after login', function () {
 
     $component->call('login');
 
-    $component->assertRedirect(route('user.dashboard', absolute: false));
+    $component->assertRedirect(route('dashboard', absolute: false));
 });
 
 // ── Failed login ──────────────────────────────────────────────────────────
@@ -121,5 +121,5 @@ test('authenticated user is redirected from login to dashboard', function () {
 
     $response = $this->get('/login');
 
-    $response->assertRedirect(route('user.dashboard', absolute: false));
+    $response->assertRedirect(route('dashboard', absolute: false));
 });

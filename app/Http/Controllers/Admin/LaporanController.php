@@ -11,6 +11,8 @@ use App\Models\KlasifikasiPenilaian;
 use App\Models\Submission;
 use App\Services\PenilaianService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -32,45 +34,53 @@ class LaporanController extends Controller
             ? KlasifikasiPenilaian::find($klasifikasiId)?->nama
             : 'Semua Klasifikasi';
 
+        $ringkasan = [
+            'total_laporan' => $laporans->count(),
+            'rata_rata_nilai' => round((float) $laporans->avg('nilai_akhir'), 2),
+            'nilai_tertinggi' => optional($laporans->sortByDesc('nilai_akhir')->first(), function ($laporan) {
+                return [
+                    'nama' => $laporan->user->badanPublik->nama_badan_publik ?? 'N/A',
+                    'nilai' => (float) $laporan->nilai_akhir,
+                ];
+            }),
+            'nilai_terendah' => optional($laporans->sortBy('nilai_akhir')->first(), function ($laporan) {
+                return [
+                    'nama' => $laporan->user->badanPublik->nama_badan_publik ?? 'N/A',
+                    'nilai' => (float) $laporan->nilai_akhir,
+                ];
+            }),
+        ];
+
+        $rekapKlasifikasi = $laporans
+            ->groupBy(fn ($laporan) => $laporan->klasifikasiPenilaian->nama ?? 'Belum terklasifikasi')
+            ->map(fn (Collection $items, string $nama) => [
+                'nama' => $nama,
+                'jumlah' => $items->count(),
+            ])
+            ->values();
+
         $pdf = Pdf::loadView('admin.laporan-pdf', [
             'laporans' => $laporans,
             'namaKlasifikasi' => $namaKlasifikasi,
-            'tanggal' => now()->isoFormat('D MMMM YYYY')
-        ]);
+            'tanggal' => now()->isoFormat('D MMMM YYYY'),
+            'ringkasan' => $ringkasan,
+            'rekapKlasifikasi' => $rekapKlasifikasi,
+        ])->setPaper('a4', 'landscape');
 
         return $pdf->download('laporan-e-monev-kip-' . now()->format('Y-m-d') . '.pdf');
     }
 
     public function unduhPdfPerBadanPublik(Request $request, int $userId, int $jadwalId)
     {
-        $badanPublik = BadanPublik::where('user_id', $userId)->firstOrFail();
-        $jadwal = Jadwal::findOrFail($jadwalId);
+        return $this->downloadPerBadanPublikPdf($userId, $jadwalId);
+    }
 
-        $hasilPenilaian = HasilPenilaian::query()
-            ->where('user_id', $userId)
-            ->where('jadwal_id', $jadwalId)
-            ->where('status_verifikasi', 'Terverifikasi')
-            ->firstOrFail();
+    public function unduhPdfDinas(Request $request, int $jadwalId)
+    {
+        $userId = Auth::id();
+        abort_unless($userId, 403);
 
-        // Get scores per category using PenilaianService
-        $service = app(PenilaianService::class);
-        $nilaiPerKategori = $service->getNilaiKategoriMap($userId, $jadwalId);
-
-        // Get per-statement detail grouped by kategori
-        $detailPerKategori = $this->getDetailPernyataan($userId, $jadwalId);
-
-        $pdf = Pdf::loadView('admin.laporan-per-badan-publik-pdf', [
-            'badanPublik' => $badanPublik,
-            'jadwal' => $jadwal,
-            'hasilPenilaian' => $hasilPenilaian,
-            'nilaiPerKategori' => $nilaiPerKategori,
-            'detailPerKategori' => $detailPerKategori,
-            'tanggal' => now()->isoFormat('D MMMM YYYY')
-        ]);
-
-        $namaFile = 'laporan-' . Str::slug($badanPublik->nama_badan_publik) . '-' . $jadwal->nama . '-' . now()->format('Y-m-d') . '.pdf';
-
-        return $pdf->download($namaFile);
+        return $this->downloadPerBadanPublikPdf($userId, $jadwalId);
     }
 
     /**
@@ -126,5 +136,63 @@ class LaporanController extends Controller
         unset($kat);
 
         return $detail;
+    }
+
+    private function downloadPerBadanPublikPdf(int $userId, int $jadwalId)
+    {
+        $badanPublik = BadanPublik::where('user_id', $userId)->firstOrFail();
+        $jadwal = Jadwal::findOrFail($jadwalId);
+
+        $hasilPenilaian = HasilPenilaian::query()
+            ->where('user_id', $userId)
+            ->where('jadwal_id', $jadwalId)
+            ->where('status_verifikasi', 'Terverifikasi')
+            ->firstOrFail();
+
+        $service = app(PenilaianService::class);
+        $nilaiPerKategori = $service->getNilaiKategoriMap($userId, $jadwalId);
+        $detailPerKategori = $this->getDetailPernyataan($userId, $jadwalId);
+        $rekapValidasi = $this->getRekapValidasi($detailPerKategori);
+        $ringkasanKategori = $this->getRingkasanKategori($nilaiPerKategori);
+
+        $pdf = Pdf::loadView('admin.laporan-per-badan-publik-pdf', [
+            'badanPublik' => $badanPublik,
+            'jadwal' => $jadwal,
+            'hasilPenilaian' => $hasilPenilaian,
+            'nilaiPerKategori' => $nilaiPerKategori,
+            'detailPerKategori' => $detailPerKategori,
+            'tanggal' => now()->isoFormat('D MMMM YYYY'),
+            'rekapValidasi' => $rekapValidasi,
+            'ringkasanKategori' => $ringkasanKategori,
+        ])->setPaper('a4', 'portrait');
+
+        $namaFile = 'laporan-' . Str::slug($badanPublik->nama_badan_publik) . '-' . Str::slug($jadwal->nama) . '-' . now()->format('Y-m-d') . '.pdf';
+
+        return $pdf->download($namaFile);
+    }
+
+    private function getRekapValidasi(array $detailPerKategori): array
+    {
+        $items = collect($detailPerKategori)
+            ->flatMap(fn (array $kategori) => $kategori['pernyataan'] ?? []);
+
+        return [
+            'total' => $items->count(),
+            'valid' => $items->where('is_valid', true)->count(),
+            'tidak_valid' => $items->where('is_valid', false)->count(),
+            'belum_ditinjau' => $items->filter(fn (array $item) => $item['is_valid'] === null)->count(),
+        ];
+    }
+
+    private function getRingkasanKategori(Collection|array $nilaiPerKategori): array
+    {
+        $items = collect($nilaiPerKategori);
+
+        return [
+            'total' => $items->count(),
+            'sudah_dinilai' => $items->filter(fn (array $item) => $item['nilai'] !== null)->count(),
+            'belum_dinilai' => $items->filter(fn (array $item) => $item['nilai'] === null)->count(),
+            'rata_rata' => round((float) $items->pluck('nilai')->filter(fn ($nilai) => $nilai !== null)->avg(), 2),
+        ];
     }
 }

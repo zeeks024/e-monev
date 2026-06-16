@@ -39,13 +39,15 @@ test('biodata form shows existing data', function () {
 
     $this->actingAs($user);
 
-    $response = $this->get('/biodata/edit');
-
-    $response->assertSee('Existing Badan Publik');
-    $response->assertSee('https://existing.example.com');
-    $response->assertSee('0286-999999');
-    $response->assertSee('existing@example.com');
-    $response->assertSee('Existing Address');
+    Volt::test('pages.edit-biodata')
+        ->assertSet('nama_badan_publik', 'Existing Badan Publik')
+        ->assertSet('website', 'https://existing.example.com')
+        ->assertSet('telepon_badan_publik', '0286-999999')
+        ->assertSet('email_badan_publik', 'existing@example.com')
+        ->assertSet('alamat', 'Existing Address')
+        ->assertSet('nama_responden', 'Existing User')
+        ->assertSet('telepon_responden', '081999999999')
+        ->assertSet('jabatan', 'Existing Position');
 });
 
 // ── Update biodata ────────────────────────────────────────────────────────
@@ -78,7 +80,7 @@ test('can update badan publik fields', function () {
     $component->call('updateBiodata');
 
     $component->assertHasNoErrors();
-    $component->assertRedirect(route('user.dashboard', absolute: false));
+    $component->assertRedirect(route('dashboard', absolute: false));
 
     $badanPublik->refresh();
     expect($badanPublik->nama_badan_publik)->toBe('Updated Badan Publik');

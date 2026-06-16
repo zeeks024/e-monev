@@ -21,13 +21,15 @@ test('authenticated user can access kuesioner page', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $this->actingAs($user);
 
-    $response = $this->get('/kuesioner');
-
-    $response->assertOk();
+    Volt::test('pages.kuesioner')
+        ->assertSet('namaResponden', $user->name)
+        ->assertSet('isJadwalAktif', false);
 });
 
 test('guest cannot access kuesioner page', function () {
@@ -46,6 +48,7 @@ test('kuesioner page shows badan publik info', function () {
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
         'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $this->actingAs($user);
@@ -93,6 +96,8 @@ test('questions from active jadwal are displayed', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $jadwal = Jadwal::create([
@@ -139,13 +144,15 @@ test('shows error when no active jadwal exists', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $this->actingAs($user);
 
     $response = $this->get('/kuesioner/jawab');
 
-    $response->assertSee('Tidak ada jadwal aktif');
+    $response->assertSee('Tidak Ada Jadwal Aktif');
 });
 
 // ── Submit answers ────────────────────────────────────────────────────────
@@ -159,6 +166,8 @@ test('can submit answers with Ya/Tidak and links', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $jadwal = Jadwal::create([
@@ -219,6 +228,8 @@ test('submission is recorded in database', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $jadwal = Jadwal::create([
@@ -269,6 +280,8 @@ test('validates jawaban must be Ya or Tidak', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $jadwal = Jadwal::create([
@@ -313,6 +326,8 @@ test('validates link must be valid URL', function () {
         'telepon_badan_publik' => '0286-000000',
         'email_badan_publik' => 'test@example.com',
         'alamat' => 'Test Address',
+        'telepon_responden' => '081000000000',
+        'jabatan' => 'Staff',
     ]);
 
     $jadwal = Jadwal::create([

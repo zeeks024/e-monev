@@ -74,7 +74,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->validate([
             'jawaban.*' => ['nullable', 'in:Ya,Tidak'],
             'link_dokumen.*' => ['nullable', 'url'],
-            'upload_dokumen.*' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
+            'upload_dokumen.*' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
         ]);
 
         $submission = \App\Models\Submission::create([
@@ -222,7 +222,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                                     <td class="px-6 py-4 whitespace-nowrap">
                                                         @if($jadwalPertanyaan->butuh_upload)
                                                             <input wire:model="upload_dokumen.{{ $jadwalPertanyaan->id }}" type="file" class="text-sm">
-                                                            <p class="text-xs text-gray-500 mt-1">PDF (maks 2MB)</p>
+                                                            <p class="text-xs text-gray-500 mt-1">PDF (maks 20MB)</p>
                                                             <x-input-error :messages="$errors->get('upload_dokumen.' . $jadwalPertanyaan->id)" class="mt-1" />
                                                         @else
                                                             <span class="text-gray-400">-</span>

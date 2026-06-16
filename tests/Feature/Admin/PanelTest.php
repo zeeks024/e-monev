@@ -85,6 +85,8 @@ test('admin can see list of registered badan publik', function () {
         'telepon_badan_publik' => '0286-123456',
         'email_badan_publik' => 'diskominfo@example.go.id',
         'alamat' => 'Jl. Test No. 1',
+        'telepon_responden' => '081111111111',
+        'jabatan' => 'Staff',
     ]);
 
     $response = $this->get('/admin/badan-publik');
@@ -102,6 +104,8 @@ test('admin can view detail of a badan publik', function () {
         'telepon_badan_publik' => '0286-654321',
         'email_badan_publik' => 'detail@example.com',
         'alamat' => 'Jl. Detail No. 1',
+        'telepon_responden' => '082222222222',
+        'jabatan' => 'Staff',
     ]);
 
     $response = $this->get("/admin/badan-publik/{$user->id}/detail");

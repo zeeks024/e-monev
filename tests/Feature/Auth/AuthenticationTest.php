@@ -52,7 +52,9 @@ test('navigation menu can be rendered', function () {
 
     $response
         ->assertOk()
-        ->assertSeeVolt('layout.navigation');
+        ->assertSee('Beranda')
+        ->assertSee('Kuesioner')
+        ->assertSee('Notifikasi');
 });
 
 test('users can logout', function () {

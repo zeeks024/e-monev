@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated; 
 
 class AppServiceProvider extends ServiceProvider
@@ -21,20 +20,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Route::middleware(['web', 'admin'])
-            ->prefix('admin')
-            ->name('admin.')
-            ->group(base_path('routes/admin.php'));
-
         RedirectIfAuthenticated::redirectUsing(function ($request) {
-            // Jika yang mencoba login adalah admin, arahkan ke dashboard admin
-            if ($request->route()->getPrefix() === '/admin') {
-                return route('dashboard'); // Nama rute dashboard admin
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return route('admin.dashboard');
             }
 
-            // Jika yang mencoba login adalah user biasa, arahkan ke dashboard user
-            // Ganti '/dashboard-user' dengan rute dashboard user Anda
-            return '/dashboard'; 
+            return route('dashboard');
         });
     }
 }

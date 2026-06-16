@@ -25,12 +25,13 @@
                             <span class="text-xl font-bold text-gray-800">E-Monev KIP</span>
                         </a>
                         <nav class="hidden md:flex items-center space-x-2 lg:space-x-4">
-                            <a href="{{ route('user.dashboard') }}" class="px-4 py-2 rounded-md {{ request()->routeIs('user.dashboard') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-blue-600' }}">Beranda</a>
+                            <a href="{{ route('dashboard') }}" class="px-4 py-2 rounded-md {{ request()->routeIs('dashboard') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-blue-600' }}">Beranda</a>
                             <a href="{{ route('kuesioner') }}" class="px-4 py-2 rounded-md {{ request()->routeIs('kuesioner') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-blue-600' }}">Kuesioner</a>
                             <a href="{{ route('notifikasi') }}" class="px-4 py-2 rounded-md {{ request()->routeIs('notifikasi') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-blue-600' }} relative">
                                 Notifikasi
                                 <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                             </a>
+                            <a href="{{ route('profile.edit') }}" class="px-4 py-2 rounded-md {{ request()->routeIs('profile.*') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-blue-600' }}">Profile</a>
                             <a href="{{ route('logout.confirm') }}" wire:navigate class="px-4 py-2 text-gray-600 hover:text-blue-600 rounded-md">Keluar</a>
                         </nav>
                     </div>

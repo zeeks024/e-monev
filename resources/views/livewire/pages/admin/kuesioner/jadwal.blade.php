@@ -10,6 +10,7 @@ new #[Layout('components.layouts.admin')] class extends Component
 {
     public $jadwalList;
     public $jadwalIdToDelete;
+    public ?Jadwal $selectedJadwalToDelete = null;
     public $jadwalIdToEdit;
     public bool $showDeleteModal = false;
     public bool $showEditModal = false;
@@ -101,6 +102,13 @@ new #[Layout('components.layouts.admin')] class extends Component
         $this->showEditModal = false;
     }
 
+    public function cancelDelete(): void
+    {
+        $this->showDeleteModal = false;
+        $this->selectedJadwalToDelete = null;
+        $this->jadwalIdToDelete = null;
+    }
+
     public function setActiveJadwal($jadwalId): void
     {
         Jadwal::query()->update(['is_active' => false]);
@@ -112,23 +120,26 @@ new #[Layout('components.layouts.admin')] class extends Component
     public function confirmDelete($jadwalId): void
     {
         $this->jadwalIdToDelete = $jadwalId;
+        $this->selectedJadwalToDelete = Jadwal::with(['jadwalPertanyaans', 'submissions'])->find($jadwalId);
         $this->showDeleteModal = true;
     }
 
     public function deleteJadwal(): void
     {
         $jadwal = Jadwal::find($this->jadwalIdToDelete);
-
-        // Check if has submissions
-        if ($jadwal->submissions()->count() > 0) {
-            session()->flash('error', 'Tidak dapat menghapus jadwal yang sudah memiliki submission.');
+        if (! $jadwal) {
+            session()->flash('error', 'Jadwal tidak ditemukan.');
             $this->showDeleteModal = false;
+            $this->selectedJadwalToDelete = null;
+            $this->jadwalIdToDelete = null;
             return;
         }
 
         $jadwal->delete();
         session()->flash('success', 'Jadwal berhasil dihapus.');
         $this->showDeleteModal = false;
+        $this->selectedJadwalToDelete = null;
+        $this->jadwalIdToDelete = null;
         $this->loadJadwal();
     }
 }; ?>
@@ -271,15 +282,13 @@ new #[Layout('components.layouts.admin')] class extends Component
                                             </button>
                                         @endif
 
-                                        @if($jadwal->jadwalPertanyaans()->count() === 0 && $jadwal->submissions()->count() === 0)
-                                            <button wire:click="confirmDelete({{ $jadwal->id }})"
-                                                class="text-red-600 hover:text-red-900 font-medium"
-                                                title="Hapus">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        @endif
+                                        <button wire:click="confirmDelete({{ $jadwal->id }})"
+                                            class="text-red-600 hover:text-red-900 font-medium"
+                                            title="Hapus">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -304,7 +313,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                         <li>Klik tombol edit (ikon pensil) untuk mengubah informasi jadwal</li>
                         <li>Admin bisa menambahkan/mengedit pertanyaan untuk jadwal aktif</li>
                         <li>Untuk menonaktifkan jadwal aktif, klik tombol aktif pada jadwal lain</li>
-                        <li>Jadwal yang sudah memiliki submission tidak dapat dihapus</li>
+                        <li>Menghapus jadwal akan ikut menghapus pertanyaan jadwal dan submission yang terkait</li>
                     </ol>
                 </div>
             @endif
@@ -321,14 +330,22 @@ new #[Layout('components.layouts.admin')] class extends Component
                             </svg>
                         </div>
                         <h3 class="text-lg leading-6 font-medium text-gray-900">Hapus Jadwal</h3>
-                        <div class="mt-2 px-7 py-3">
+                        <div class="mt-2 px-7 py-3 space-y-3">
                             <p class="text-sm text-gray-500">
                                 Apakah Anda yakin ingin menghapus jadwal ini? Tindakan ini tidak dapat dibatalkan.
                             </p>
+                            @if($selectedJadwalToDelete)
+                                <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-left">
+                                    <p class="text-sm font-semibold text-red-900">{{ $selectedJadwalToDelete->nama }}</p>
+                                    <p class="mt-1 text-xs text-red-700">
+                                        Penghapusan ini juga akan menghapus {{ $selectedJadwalToDelete->jadwalPertanyaans->count() }} pertanyaan jadwal dan {{ $selectedJadwalToDelete->submissions->count() }} submission yang terkait.
+                                    </p>
+                                </div>
+                            @endif
                         </div>
                     </div>
                     <div class="flex justify-center space-x-4 mt-6">
-                        <button wire:click="$set('showDeleteModal', false)"
+                        <button wire:click="cancelDelete"
                             class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                             Batal
                         </button>
