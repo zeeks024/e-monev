@@ -2,7 +2,9 @@
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use App\Mail\SendResetCode; // Anda perlu membuat Mailable ini
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -19,6 +21,9 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->validate([
             'email' => ['required', 'email', 'exists:users,email'],
         ]);
+
+        $this->ensureResetLinkIsNotRateLimited();
+        RateLimiter::hit($this->resetLinkThrottleKey(), 300);
 
         // 1. Buat kode acak 6 digit.
         $code = Str::random(6);
@@ -46,6 +51,27 @@ new #[Layout('components.layouts.app')] class extends Component
 
         // Arahkan pengguna ke halaman verifikasi kode.
         $this->redirect(route('password.verify-code'), navigate: true);
+    }
+
+    protected function ensureResetLinkIsNotRateLimited(): void
+    {
+        if (! RateLimiter::tooManyAttempts($this->resetLinkThrottleKey(), 3)) {
+            return;
+        }
+
+        $seconds = RateLimiter::availableIn($this->resetLinkThrottleKey());
+
+        throw ValidationException::withMessages([
+            'email' => trans('auth.throttle', [
+                'seconds' => $seconds,
+                'minutes' => ceil($seconds / 60),
+            ]),
+        ]);
+    }
+
+    protected function resetLinkThrottleKey(): string
+    {
+        return 'password-reset-mail|'.Str::transliterate(Str::lower($this->email).'|'.request()->ip());
     }
 }; ?>
 

@@ -22,8 +22,8 @@ class Jadwal extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
-        'tanggal_mulai' => 'date',
-        'tanggal_selesai' => 'date',
+        'tanggal_mulai' => 'datetime',
+        'tanggal_selesai' => 'datetime',
     ];
 
     public function jadwalPertanyaans(): HasMany

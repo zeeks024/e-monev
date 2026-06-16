@@ -6,6 +6,7 @@ use App\Models\Kategori;
 use App\Models\Jadwal;
 use App\Models\JadwalPertanyaan;
 use App\Models\PertanyaanTemplate;
+use App\Models\Submission;
 
 new #[Layout('components.layouts.admin')] class extends Component
 {
@@ -13,12 +14,14 @@ new #[Layout('components.layouts.admin')] class extends Component
     public ?Jadwal $jadwal = null;
     public $jadwalPertanyaanId = null;
     public bool $isEditMode = false;
+    public bool $isLocked = false;
 
     public string $teks_pertanyaan = '';
     public string $definisi_operasional = '';
     public string $tipe_jawaban = 'Ya/Tidak';
     public bool $butuh_link = false;
     public bool $butuh_upload = false;
+    public $skor_maks = 0;
 
     /**
      * Mount the component and handle both create and edit modes.
@@ -35,6 +38,8 @@ new #[Layout('components.layouts.admin')] class extends Component
             return;
         }
 
+        $this->isLocked = Submission::where('jadwal_id', $this->jadwal->id)->exists();
+
         // Check if edit mode (jadwalPertanyaan ID provided)
         if ($jadwalPertanyaan) {
             // Mode Edit - $jadwalPertanyaan is the ID as string
@@ -49,6 +54,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                 $this->definisi_operasional = $jadwalPertanyaanModel->pertanyaanTemplate->definisi_operasional ?? '';
                 $this->butuh_link = $jadwalPertanyaanModel->butuh_link;
                 $this->butuh_upload = $jadwalPertanyaanModel->butuh_upload;
+                $this->skor_maks = $jadwalPertanyaanModel->skor_maks;
             }
         }
     }
@@ -63,10 +69,16 @@ new #[Layout('components.layouts.admin')] class extends Component
             'definisi_operasional' => 'nullable|string',
             'butuh_link' => 'required|boolean',
             'butuh_upload' => 'required|boolean',
+            'skor_maks' => 'required|numeric|min:0',
         ]);
 
         if (!$this->jadwal) {
             session()->flash('error', 'Tidak ada jadwal aktif.');
+            return;
+        }
+
+        if ($this->isLocked) {
+            session()->flash('error', 'Pertanyaan dan skor pada jadwal aktif ini sudah dikunci karena submission sudah masuk. Buat jadwal baru jika ingin mengubah bobot.');
             return;
         }
 
@@ -79,6 +91,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                     'definisi_operasional' => $validated['definisi_operasional'],
                     'butuh_link' => $validated['butuh_link'],
                     'butuh_upload' => $validated['butuh_upload'],
+                    'skor_maks' => $validated['skor_maks'],
                 ]);
                 session()->flash('success', 'Pertanyaan berhasil diperbarui.');
             }
@@ -107,6 +120,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                 'tipe_jawaban' => $this->tipe_jawaban,
                 'butuh_link' => $validated['butuh_link'],
                 'butuh_upload' => $validated['butuh_upload'],
+                'skor_maks' => $validated['skor_maks'],
             ]);
 
             session()->flash('success', 'Pertanyaan baru berhasil ditambahkan.');
@@ -144,6 +158,12 @@ new #[Layout('components.layouts.admin')] class extends Component
                 @endif
             </div>
 
+            @if($isLocked)
+                <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                    Jadwal aktif ini sudah memiliki submission, jadi pertanyaan dan skor bobotnya dikunci. Jika ada perubahan bobot, buat jadwal baru agar nilai periode berjalan tidak berubah.
+                </div>
+            @endif
+
             <!-- Form -->
             <form wire:submit.prevent="save">
                 <div class="space-y-6">
@@ -153,6 +173,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                         <label for="teks_pertanyaan" class="block text-sm font-medium text-gray-700">Pertanyaan</label>
                         <textarea id="teks_pertanyaan" wire:model="teks_pertanyaan" rows="4"
                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  @disabled($isLocked)
                                   placeholder="Masukkan Pertanyaan"></textarea>
                         @error('teks_pertanyaan') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
@@ -162,6 +183,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                         <label for="definisi_operasional" class="block text-sm font-medium text-gray-700">Definisi Operasional</label>
                         <textarea id="definisi_operasional" wire:model="definisi_operasional" rows="3"
                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  @disabled($isLocked)
                                   placeholder="Masukkan Definisi Operasional (opsional)"></textarea>
                         @error('definisi_operasional') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
@@ -176,14 +198,26 @@ new #[Layout('components.layouts.admin')] class extends Component
 
                     <!-- Persyaratan Bukti -->
                     <div>
+                        <label for="skor_maks" class="block text-sm font-medium text-gray-700">Skor Maksimum</label>
+                        <input id="skor_maks" wire:model="skor_maks" type="number" min="0" step="0.01"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                               @disabled($isLocked)
+                               placeholder="Contoh: 10">
+                        <p class="mt-1 text-xs text-gray-500">
+                            Bobot ini dipakai langsung dalam penilaian untuk jadwal aktif.
+                        </p>
+                        @error('skor_maks') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium text-gray-700">Persyaratan Bukti</label>
                         <div class="mt-2 space-y-2">
                             <div class="flex items-center">
-                                <input id="butuh_link" wire:model="butuh_link" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                <input id="butuh_link" wire:model="butuh_link" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" @disabled($isLocked)>
                                 <label for="butuh_link" class="ml-2 block text-sm text-gray-900">Link Dokumen</label>
                             </div>
                             <div class="flex items-center">
-                                <input id="butuh_upload" wire:model="butuh_upload" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                <input id="butuh_upload" wire:model="butuh_upload" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" @disabled($isLocked)>
                                 <label for="butuh_upload" class="ml-2 block text-sm text-gray-900">Upload File Dokumen</label>
                             </div>
                         </div>
@@ -198,8 +232,9 @@ new #[Layout('components.layouts.admin')] class extends Component
                         Batal
                     </a>
                     <button type="submit"
-                            class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                        <span wire:loading.remove>{{ $isEditMode ? 'Simpan Perubahan' : 'Simpan' }}</span>
+                            @disabled($isLocked)
+                            class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400">
+                        <span wire:loading.remove>{{ $isLocked ? 'Terkunci' : ($isEditMode ? 'Simpan Perubahan' : 'Simpan') }}</span>
                         <span wire:loading>Menyimpan...</span>
                     </button>
                 </div>

@@ -499,12 +499,6 @@ new #[Layout('components.layouts.admin')] class extends Component
                             placeholder="Masukkan isi pesan atau peringatan yang ingin dikirim"></textarea>
                         @error('isi') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
-                    <div class="rounded-lg border border-blue-100 bg-blue-50 p-4">
-                        <p class="text-sm font-medium text-gray-800">Catatan pengiriman</p>
-                        <p class="mt-1 text-sm text-gray-600">
-                            Jika memilih channel email, sistem akan langsung mengirim email saat tombol kirim ditekan. Untuk jumlah pengguna sekitar 50 akun, mode ini masih cukup praktis.
-                        </p>
-                    </div>
                 </div>
 
                 <div class="mt-6 flex justify-end space-x-3">

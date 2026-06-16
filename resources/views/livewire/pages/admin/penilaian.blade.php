@@ -13,6 +13,11 @@ new #[Layout('components.layouts.admin')] class extends Component
 
     public string $search = '';
 
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function with(): array
     {
         $query = Submission::query()
@@ -23,8 +28,19 @@ new #[Layout('components.layouts.admin')] class extends Component
             ->orderByDesc('tanggal_submit');
 
         if ($this->search !== '') {
-            $query->whereHas('user.badanPublik', function ($q) {
-                $q->where('nama_badan_publik', 'like', '%' . $this->search . '%');
+            $search = '%' . trim($this->search) . '%';
+
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user.badanPublik', function ($bpQuery) use ($search) {
+                    $bpQuery->where('nama_badan_publik', 'like', $search)
+                        ->orWhere('email_badan_publik', 'like', $search);
+                })->orWhereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', $search)
+                        ->orWhere('email', 'like', $search);
+                })->orWhereHas('jadwal', function ($jadwalQuery) use ($search) {
+                    $jadwalQuery->where('nama', 'like', $search)
+                        ->orWhere('tahun', 'like', $search);
+                });
             });
         }
 
@@ -64,16 +80,29 @@ new #[Layout('components.layouts.admin')] class extends Component
     <x-slot name="header">
         <div class="flex items-center space-x-8">
             <h1 class="text-3xl font-bold text-gray-900">Penilaian</h1>
-            <div class="relative">
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari Badan Publik..." class="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm">
-                <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
         </div>
     </x-slot>
 
     <main class="p-8">
         <div class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-xl font-semibold text-gray-800 mb-6">List Verifikasi Nilai Dinas</h2>
+
+            <div class="mb-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+                <div class="relative">
+                    <input
+                        wire:model.live.debounce.300ms="search"
+                        type="text"
+                        placeholder="Cari badan publik, user, email, atau jadwal..."
+                        class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                    <svg class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <div class="text-sm text-gray-500 md:text-right">
+                    Pencarian memfilter daftar verifikasi nilai pada tabel ini.
+                </div>
+            </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full min-w-full divide-y divide-gray-200">

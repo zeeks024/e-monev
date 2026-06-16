@@ -26,6 +26,7 @@ node_modules
 coverage/
 database/dumps/
 db_emonev_kip_*.sql
+emonev-deploy-*.zip
 docs/
 scripts/generate_user_guide_doc.py
 

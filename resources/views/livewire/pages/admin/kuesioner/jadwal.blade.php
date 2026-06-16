@@ -5,6 +5,7 @@ use Livewire\Attributes\Layout;
 use App\Models\Jadwal;
 use App\Models\JadwalPertanyaan;
 use App\Models\PertanyaanTemplate;
+use Carbon\Carbon;
 
 new #[Layout('components.layouts.admin')] class extends Component
 {
@@ -30,7 +31,8 @@ new #[Layout('components.layouts.admin')] class extends Component
 
     public function loadJadwal(): void
     {
-        $this->jadwalList = Jadwal::orderBy('tahun', 'desc')
+        $this->jadwalList = Jadwal::withCount(['jadwalPertanyaans', 'submissions'])
+            ->orderBy('tahun', 'desc')
             ->orderBy('tanggal_mulai', 'desc')
             ->get();
     }
@@ -45,6 +47,11 @@ new #[Layout('components.layouts.admin')] class extends Component
             'deskripsi' => 'nullable|string',
         ]);
 
+        $sourceJadwal = Jadwal::with('jadwalPertanyaans')
+            ->orderBy('tanggal_mulai', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
         // Set other jadwals to inactive
         Jadwal::query()->update(['is_active' => false]);
 
@@ -54,7 +61,37 @@ new #[Layout('components.layouts.admin')] class extends Component
             'is_active' => true,
         ]);
 
-        session()->flash('success', 'Jadwal baru berhasil dibuat. Jadwal ini otomatis diaktifkan.');
+        $copiedCount = 0;
+
+        if ($sourceJadwal && $sourceJadwal->jadwalPertanyaans->isNotEmpty()) {
+            $copiedCount = $sourceJadwal->jadwalPertanyaans->count();
+
+            $sourceJadwal->jadwalPertanyaans
+                ->sortBy('urutan')
+                ->each(function (JadwalPertanyaan $jadwalPertanyaan) use ($jadwal): void {
+                    JadwalPertanyaan::create([
+                        'jadwal_id' => $jadwal->id,
+                        'pertanyaan_template_id' => $jadwalPertanyaan->pertanyaan_template_id,
+                        'teks_pertanyaan' => $jadwalPertanyaan->teks_pertanyaan,
+                        'definisi_operasional' => $jadwalPertanyaan->definisi_operasional,
+                        'urutan' => $jadwalPertanyaan->urutan,
+                        'tipe_jawaban' => $jadwalPertanyaan->tipe_jawaban,
+                        'butuh_link' => $jadwalPertanyaan->butuh_link,
+                        'butuh_upload' => $jadwalPertanyaan->butuh_upload,
+                        'skor_maks' => $jadwalPertanyaan->skor_maks,
+                    ]);
+                });
+        }
+
+        $message = 'Jadwal baru berhasil dibuat dan otomatis diaktifkan.';
+
+        if ($copiedCount > 0) {
+            $message .= " {$copiedCount} pertanyaan dari jadwal sebelumnya ikut disalin.";
+        } else {
+            $message .= ' Belum ada pertanyaan yang disalin, jadi Anda bisa menambahkan pertanyaan awal untuk periode ini.';
+        }
+
+        session()->flash('success', $message);
         $this->reset(['nama', 'tahun', 'tanggal_mulai', 'tanggal_selesai', 'deskripsi', 'isEditMode', 'jadwalIdToEdit']);
         $this->showEditModal = false;
         $this->loadJadwal();
@@ -68,8 +105,8 @@ new #[Layout('components.layouts.admin')] class extends Component
             $this->jadwalIdToEdit = $jadwalId;
             $this->nama = $jadwal->nama;
             $this->tahun = $jadwal->tahun;
-            $this->tanggal_mulai = $jadwal->tanggal_mulai->format('Y-m-d');
-            $this->tanggal_selesai = $jadwal->tanggal_selesai->format('Y-m-d');
+            $this->tanggal_mulai = $jadwal->tanggal_mulai->format('Y-m-d\TH:i');
+            $this->tanggal_selesai = $jadwal->tanggal_selesai->format('Y-m-d\TH:i');
             $this->deskripsi = $jadwal->deskripsi;
             $this->showEditModal = true;
         }
@@ -175,6 +212,9 @@ new #[Layout('components.layouts.admin')] class extends Component
         <!-- Form Create Jadwal -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-8">
             <h2 class="text-lg font-semibold text-gray-800 mb-4">Buat Jadwal Baru</h2>
+            <div class="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+                Secara default, jadwal baru akan menyalin pertanyaan dari jadwal sebelumnya. Jadi biasanya Anda cukup membuat periode baru, lalu hanya menyesuaikan jika memang ada perubahan pertanyaan.
+            </div>
             <form wire:submit.prevent="createJadwal">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -192,14 +232,14 @@ new #[Layout('components.layouts.admin')] class extends Component
                         @error('tahun') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
                     <div>
-                        <label for="tanggal_mulai" class="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
-                        <input wire:model="tanggal_mulai" id="tanggal_mulai" type="date"
+                        <label for="tanggal_mulai" class="block text-sm font-medium text-gray-700">Tanggal & Jam Mulai</label>
+                        <input wire:model="tanggal_mulai" id="tanggal_mulai" type="datetime-local"
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         @error('tanggal_mulai') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
                     <div>
-                        <label for="tanggal_selesai" class="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
-                        <input wire:model="tanggal_selesai" id="tanggal_selesai" type="date"
+                        <label for="tanggal_selesai" class="block text-sm font-medium text-gray-700">Tanggal & Jam Selesai</label>
+                        <input wire:model="tanggal_selesai" id="tanggal_selesai" type="datetime-local"
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         @error('tanggal_selesai') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
@@ -211,6 +251,9 @@ new #[Layout('components.layouts.admin')] class extends Component
                         placeholder="Deskripsi periode evaluasi..."></textarea>
                     @error('deskripsi') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
+                <p class="mt-3 text-xs text-gray-500">
+                    Waktu jadwal mengikuti zona waktu WIB (`Asia/Jakarta`).
+                </p>
                 <div class="mt-4">
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         Buat Jadwal
@@ -246,8 +289,8 @@ new #[Layout('components.layouts.admin')] class extends Component
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $jadwal->tahun }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ \Carbon\Carbon::parse($jadwal->tanggal_mulai)->format('d M Y') }} -
-                                    {{ \Carbon\Carbon::parse($jadwal->tanggal_selesai)->format('d M Y') }}
+                                    {{ Carbon::parse($jadwal->tanggal_mulai)->timezone('Asia/Jakarta')->isoFormat('D MMM YYYY, HH:mm') }} WIB -
+                                    {{ Carbon::parse($jadwal->tanggal_selesai)->timezone('Asia/Jakarta')->isoFormat('D MMM YYYY, HH:mm') }} WIB
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($jadwal->is_active)
@@ -257,10 +300,10 @@ new #[Layout('components.layouts.admin')] class extends Component
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $jadwal->jadwalPertanyaans->count() }} pertanyaan
+                                    {{ $jadwal->jadwal_pertanyaans_count }} pertanyaan
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $jadwal->submissions->count() }} submission
+                                    {{ $jadwal->submissions_count }} submission
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex justify-center items-center space-x-2">
@@ -309,9 +352,9 @@ new #[Layout('components.layouts.admin')] class extends Component
                     <h3 class="text-sm font-semibold text-blue-900 mb-2">Panduan Penggunaan Jadwal</h3>
                     <ol class="text-sm text-blue-800 space-y-1 list-decimal list-inside">
                         <li>Buat jadwal baru dengan mengisi form di atas</li>
-                        <li>Jadwal baru otomatis menjadi jadwal aktif</li>
+                        <li>Jadwal baru otomatis menjadi jadwal aktif dan menyalin pertanyaan dari jadwal sebelumnya bila tersedia</li>
                         <li>Klik tombol edit (ikon pensil) untuk mengubah informasi jadwal</li>
-                        <li>Admin bisa menambahkan/mengedit pertanyaan untuk jadwal aktif</li>
+                        <li>Admin biasanya cukup meninjau pertanyaan hasil salinan, lalu mengedit hanya jika ada perubahan periode</li>
                         <li>Untuk menonaktifkan jadwal aktif, klik tombol aktif pada jadwal lain</li>
                         <li>Menghapus jadwal akan ikut menghapus pertanyaan jadwal dan submission yang terkait</li>
                     </ol>
@@ -388,14 +431,14 @@ new #[Layout('components.layouts.admin')] class extends Component
                                 @error('tahun') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <label for="edit_tanggal_mulai" class="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
-                                <input wire:model="tanggal_mulai" id="edit_tanggal_mulai" type="date"
+                                <label for="edit_tanggal_mulai" class="block text-sm font-medium text-gray-700">Tanggal & Jam Mulai</label>
+                                <input wire:model="tanggal_mulai" id="edit_tanggal_mulai" type="datetime-local"
                                     class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                 @error('tanggal_mulai') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <label for="edit_tanggal_selesai" class="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
-                                <input wire:model="tanggal_selesai" id="edit_tanggal_selesai" type="date"
+                                <label for="edit_tanggal_selesai" class="block text-sm font-medium text-gray-700">Tanggal & Jam Selesai</label>
+                                <input wire:model="tanggal_selesai" id="edit_tanggal_selesai" type="datetime-local"
                                     class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                 @error('tanggal_selesai') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>

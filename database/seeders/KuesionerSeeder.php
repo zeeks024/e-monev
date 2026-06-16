@@ -66,8 +66,8 @@ class KuesionerSeeder extends Seeder
         $jadwal = Jadwal::updateOrCreate(
             ['tahun' => 2026, 'nama' => 'Monitoring dan Evaluasi KIP TA 2026'],
             [
-                'tanggal_mulai' => '2026-01-01',
-                'tanggal_selesai' => '2026-12-31',
+                'tanggal_mulai' => '2026-01-01 00:00:00',
+                'tanggal_selesai' => '2026-12-31 23:59:59',
                 'is_active' => true,
                 'deskripsi' => 'Jadwal monitoring dan evaluasi keterbukaan informasi publik Tahun Anggaran 2026.',
             ]

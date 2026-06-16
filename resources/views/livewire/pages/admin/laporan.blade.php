@@ -14,15 +14,19 @@ new #[Layout('components.layouts.admin')] class extends Component
     public $jadwalId = 'semua';
     public string $search = '';
 
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedJadwalId(): void
+    {
+        $this->resetPage();
+    }
+
     public function with(): array
     {
         $jadwals = Jadwal::query()->orderBy('tahun', 'desc')->get();
-
-        // Get all unique user IDs that have verified results
-        $userIdsWithResults = HasilPenilaian::query()
-            ->where('status_verifikasi', 'Terverifikasi')
-            ->distinct()
-            ->pluck('user_id');
 
         $query = BadanPublik::query()
             ->with(['user' => function ($q) {
@@ -31,12 +35,25 @@ new #[Layout('components.layouts.admin')] class extends Component
                         ->with('jadwal', 'klasifikasiPenilaian');
                 }]);
             }])
-            ->whereHas('user', function ($q) {
-                // Get all users that have badan publik
+            ->whereHas('user.hasilPenilaians', function ($q) {
+                $q->where('status_verifikasi', 'Terverifikasi');
+
+                if ($this->jadwalId && $this->jadwalId !== 'semua') {
+                    $q->where('jadwal_id', $this->jadwalId);
+                }
             });
 
         if (!empty($this->search)) {
-            $query->where('nama_badan_publik', 'like', '%' . $this->search . '%');
+            $search = '%' . trim($this->search) . '%';
+
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_badan_publik', 'like', $search)
+                    ->orWhere('email_badan_publik', 'like', $search)
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', $search)
+                            ->orWhere('email', 'like', $search);
+                    });
+            });
         }
 
         $badanPubliks = $query->orderBy('nama_badan_publik')->paginate(10);
@@ -66,10 +83,6 @@ new #[Layout('components.layouts.admin')] class extends Component
     <x-slot name="header">
         <div class="flex items-center space-x-8">
             <h1 class="text-3xl font-bold text-gray-900">Laporan</h1>
-            <div class="relative">
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari Badan Publik..." class="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm">
-                <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
         </div>
     </x-slot>
 
@@ -77,6 +90,23 @@ new #[Layout('components.layouts.admin')] class extends Component
         <div class="bg-white p-6 rounded-lg shadow-md">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-800">Laporan Hasil E-Monev KIP</h2>
+            </div>
+
+            <div class="mb-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+                <div class="relative">
+                    <input
+                        wire:model.live.debounce.300ms="search"
+                        type="text"
+                        placeholder="Cari badan publik, nama user, atau email..."
+                        class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                    <svg class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <div class="text-sm text-gray-500 md:text-right">
+                    Pencarian memfilter data laporan yang tampil di tabel.
+                </div>
             </div>
 
             <div class="mb-6 border-b border-gray-200">
@@ -107,27 +137,23 @@ new #[Layout('components.layouts.admin')] class extends Component
                             @php
                                 $hasil = $this->getHasilPenilaian($badanPublik->user_id, $jadwalId);
                             @endphp
-                            <tr>
-                                <td class="px-6 py-4 text-sm">{{ $loop->iteration + $badanPubliks->firstItem() - 1 }}</td>
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $badanPublik->nama_badan_publik ?? 'N/A' }}</td>
-                                <td class="px-6 py-4 text-sm">{{ $hasil?->jadwal->nama ?? '-' }}</td>
-                                <td class="px-6 py-4 text-sm font-bold text-gray-800">{{ $hasil ? number_format($hasil->nilai_akhir, 2) : '-' }}</td>
-                                <td class="px-6 py-4 text-sm text-gray-700">{{ $hasil?->klasifikasiPenilaian->nama ?? 'Belum terklasifikasi' }}</td>
-                                <td class="px-6 py-4 text-right">
-                                    @if ($hasil)
+                            @if ($hasil)
+                                <tr>
+                                    <td class="px-6 py-4 text-sm">{{ $loop->iteration + $badanPubliks->firstItem() - 1 }}</td>
+                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $badanPublik->nama_badan_publik ?? 'N/A' }}</td>
+                                    <td class="px-6 py-4 text-sm">{{ $hasil->jadwal->nama ?? '-' }}</td>
+                                    <td class="px-6 py-4 text-sm font-bold text-gray-800">{{ number_format($hasil->nilai_akhir, 2) }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">{{ $hasil->klasifikasiPenilaian->nama ?? 'Belum terklasifikasi' }}</td>
+                                    <td class="px-6 py-4 text-right">
                                         <a href="{{ route('admin.laporan.unduh.per-badan-publik', ['userId' => $badanPublik->user_id, 'jadwalId' => ($jadwalId === 'semua' ? $hasil->jadwal_id : $jadwalId)]) }}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                             </svg>
                                             Unduh
                                         </a>
-                                    @else
-                                        <span class="inline-flex items-center px-3 py-1.5 bg-gray-300 text-gray-500 text-xs font-medium rounded cursor-not-allowed">
-                                            Belum Ada Laporan
-                                        </span>
-                                    @endif
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            @endif
                         @empty
                             <tr>
                                 <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Tidak ada data badan publik yang ditemukan.</td>

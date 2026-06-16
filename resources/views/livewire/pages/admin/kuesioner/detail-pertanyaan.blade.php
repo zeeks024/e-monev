@@ -5,12 +5,14 @@ use Livewire\Attributes\Layout;
 use App\Models\Kategori;
 use App\Models\Jadwal;
 use App\Models\JadwalPertanyaan;
+use App\Models\Submission;
 
 new #[Layout('components.layouts.admin')] class extends Component
 {
     public Kategori $kategori;
     public ?Jadwal $jadwal;
     public $jadwalPertanyaans;
+    public bool $isLocked = false;
 
     /**
      * Mount the component, load the category and its questions.
@@ -27,6 +29,8 @@ new #[Layout('components.layouts.admin')] class extends Component
             $this->jadwalPertanyaans = collect();
             return;
         }
+
+        $this->isLocked = Submission::where('jadwal_id', $this->jadwal->id)->exists();
 
         $this->loadPertanyaans();
     }
@@ -55,6 +59,11 @@ new #[Layout('components.layouts.admin')] class extends Component
      */
     public function deletePertanyaan(JadwalPertanyaan $jadwalPertanyaan): void
     {
+        if ($this->isLocked) {
+            session()->flash('error', 'Pertanyaan pada jadwal ini sudah dikunci karena submission sudah masuk.');
+            return;
+        }
+
         $jadwalPertanyaan->delete();
         session()->flash('success', 'Pertanyaan berhasil dihapus.');
         $this->loadPertanyaans(); // Muat ulang daftar pertanyaan
@@ -97,9 +106,13 @@ new #[Layout('components.layouts.admin')] class extends Component
                     </div>
                 </div>
 
-                <a href="{{ route('admin.kuesioner.pertanyaan.create', ['kategori' => $kategori->id]) }}" wire:navigate class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 inline-flex items-center">
+                <a href="{{ route('admin.kuesioner.pertanyaan.create', ['kategori' => $kategori->id]) }}" wire:navigate @class([
+                    'px-4 py-2 text-sm font-medium rounded-md inline-flex items-center',
+                    'text-white bg-blue-600 hover:bg-blue-700' => ! $isLocked,
+                    'cursor-not-allowed bg-gray-300 text-gray-600 pointer-events-none' => $isLocked,
+                ])>
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                    Buat Pertanyaan
+                    {{ $isLocked ? 'Pertanyaan Terkunci' : 'Buat Pertanyaan' }}
                 </a>
             </div>
 
@@ -115,6 +128,21 @@ new #[Layout('components.layouts.admin')] class extends Component
                     </a>
                 </div>
             @else
+                <div class="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+                    Pertanyaan pada jadwal aktif ini biasanya merupakan salinan dari jadwal sebelumnya. Tinjau daftar ini dan ubah hanya jika ada penyesuaian untuk periode sekarang.
+                </div>
+
+                @if($isLocked)
+                    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        Jadwal ini sudah memiliki submission, jadi daftar pertanyaan dan skor bobotnya dikunci untuk menjaga konsistensi nilai.
+                    </div>
+                @endif
+
+                <div class="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+                    <span class="text-gray-600">Total skor kategori ini</span>
+                    <span class="font-semibold text-gray-900">{{ number_format($jadwalPertanyaans->sum('skor_maks'), 2) }}</span>
+                </div>
+
                 <!-- Tabel Pertanyaan -->
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -123,6 +151,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No</th>
                                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pertanyaan</th>
                                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Definisi Operasional</th>
+                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Skor Maks</th>
                                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pilih Jawaban</th>
                                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Link Dokumen</th>
                                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Upload Dokumen</th>
@@ -135,6 +164,7 @@ new #[Layout('components.layouts.admin')] class extends Component
                                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $index + 1 }}</td>
                                      <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">{{ $jadwalPertanyaan->teks_pertanyaan }}</td>
                                      <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">{{ $jadwalPertanyaan->definisi_operasional ?: '-' }}</td>
+                                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-gray-700">{{ number_format($jadwalPertanyaan->skor_maks ?? 0, 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <div class="flex justify-center items-center space-x-4">
                                             <div class="flex items-center">
@@ -166,7 +196,11 @@ new #[Layout('components.layouts.admin')] class extends Component
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <div class="flex justify-center items-center space-x-2">
-                                            <a href="{{ route('admin.kuesioner.pertanyaan.edit', ['kategori' => $kategori->id, 'jadwalPertanyaan' => $jadwalPertanyaan->id]) }}" wire:navigate class="p-2 rounded-md bg-yellow-500 text-white hover:bg-yellow-600">
+                                            <a href="{{ route('admin.kuesioner.pertanyaan.edit', ['kategori' => $kategori->id, 'jadwalPertanyaan' => $jadwalPertanyaan->id]) }}" wire:navigate @class([
+                                                'p-2 rounded-md text-white',
+                                                'bg-yellow-500 hover:bg-yellow-600' => ! $isLocked,
+                                                'bg-gray-300 pointer-events-none cursor-not-allowed' => $isLocked,
+                                            ])>
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
@@ -174,7 +208,8 @@ new #[Layout('components.layouts.admin')] class extends Component
                                             <button
                                                 wire:click="deletePertanyaan({{ $jadwalPertanyaan->id }})"
                                                 wire:confirm="Anda yakin ingin menghapus pertanyaan ini?"
-                                                class="p-2 rounded-md bg-red-600 text-white hover:bg-red-700">
+                                                @disabled($isLocked)
+                                                class="p-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
@@ -184,8 +219,8 @@ new #[Layout('components.layouts.admin')] class extends Component
                                 </tr>
                              @empty
                                  <tr>
-                                     <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
-                                         Belum ada pertanyaan yang dibuat untuk kategori ini pada jadwal aktif.
+                                     <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500">
+                                         Belum ada pertanyaan untuk kategori ini pada jadwal aktif. Jika jadwal baru belum mewarisi pertanyaan, Anda bisa menambahkan pertanyaan awal dari sini.
                                      </td>
                                  </tr>
                              @endforelse

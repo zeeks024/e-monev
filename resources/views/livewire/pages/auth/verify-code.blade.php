@@ -5,7 +5,9 @@ use App\Mail\SendResetCode; // Anda perlu membuat Mailable ini
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -35,6 +37,8 @@ new #[Layout('components.layouts.app')] class extends Component
             'code' => ['required', 'string', 'min:6', 'max:6'],
         ]);
 
+        $this->ensureCodeVerificationIsNotRateLimited();
+
         // 1. Cari token di database.
         $tokenData = DB::table('password_reset_tokens')
             ->where('email', $this->email)
@@ -45,6 +49,7 @@ new #[Layout('components.layouts.app')] class extends Component
         if ($tokenData && now()->subMinutes(10)->lt($tokenData->created_at)) {
             // Jika valid, hapus token lama agar tidak bisa dipakai lagi.
             DB::table('password_reset_tokens')->where('email', $this->email)->delete();
+            RateLimiter::clear($this->verificationThrottleKey());
 
             // Buat token reset password yang sebenarnya (yang panjang dan aman).
             $user = User::where('email', $this->email)->first();
@@ -54,6 +59,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->redirect(route('password.reset', ['token' => $longToken, 'email' => $this->email]));
         } else {
             // Jika tidak valid, tampilkan error.
+            RateLimiter::hit($this->verificationThrottleKey(), 300);
             $this->addError('code', 'Kode verifikasi tidak valid atau sudah kedaluwarsa.');
         }
     }
@@ -63,6 +69,9 @@ new #[Layout('components.layouts.app')] class extends Component
      */
      public function resendCode(): void
      {
+        $this->ensureResendIsNotRateLimited();
+        RateLimiter::hit($this->resetLinkThrottleKey(), 300);
+
         // 1. Buat kode acak 6 digit baru.
         $newCode = Str::random(6);
 
@@ -82,6 +91,48 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->addError('code', 'Gagal mengirim ulang kode. Coba lagi nanti.');
         }
      }
+
+    protected function ensureCodeVerificationIsNotRateLimited(): void
+    {
+        if (! RateLimiter::tooManyAttempts($this->verificationThrottleKey(), 5)) {
+            return;
+        }
+
+        $seconds = RateLimiter::availableIn($this->verificationThrottleKey());
+
+        throw ValidationException::withMessages([
+            'code' => trans('auth.throttle', [
+                'seconds' => $seconds,
+                'minutes' => ceil($seconds / 60),
+            ]),
+        ]);
+    }
+
+    protected function ensureResendIsNotRateLimited(): void
+    {
+        if (! RateLimiter::tooManyAttempts($this->resetLinkThrottleKey(), 3)) {
+            return;
+        }
+
+        $seconds = RateLimiter::availableIn($this->resetLinkThrottleKey());
+
+        throw ValidationException::withMessages([
+            'code' => trans('auth.throttle', [
+                'seconds' => $seconds,
+                'minutes' => ceil($seconds / 60),
+            ]),
+        ]);
+    }
+
+    protected function verificationThrottleKey(): string
+    {
+        return 'password-reset-verify|'.Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+    }
+
+    protected function resetLinkThrottleKey(): string
+    {
+        return 'password-reset-mail|'.Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+    }
 
 }; ?>
 

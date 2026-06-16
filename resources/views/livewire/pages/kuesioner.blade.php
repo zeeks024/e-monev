@@ -56,8 +56,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 $tanggalMulai   = Carbon::parse($jadwalAktif->tanggal_mulai);
                 $tanggalSelesai = Carbon::parse($jadwalAktif->tanggal_selesai);
                 $this->jadwal = $jadwalAktif->nama . ' (' . $jadwalAktif->tahun . ') - ' .
-                                $tanggalMulai->isoFormat('D MMMM YYYY') . ' s/d ' .
-                                $tanggalSelesai->isoFormat('D MMMM YYYY');
+                                $tanggalMulai->timezone('Asia/Jakarta')->isoFormat('D MMMM YYYY, HH:mm') . ' WIB s/d ' .
+                                $tanggalSelesai->timezone('Asia/Jakarta')->isoFormat('D MMMM YYYY, HH:mm') . ' WIB';
                 $this->isJadwalAktif = true;
             } else {
                 // Check if any jadwal exists but not active
@@ -66,8 +66,8 @@ new #[Layout('components.layouts.app')] class extends Component
                     $tanggalMulai   = Carbon::parse($jadwalDb->tanggal_mulai);
                     $tanggalSelesai = Carbon::parse($jadwalDb->tanggal_selesai);
                     $this->jadwal = $jadwalDb->nama . ' (' . $jadwalDb->tahun . ') - ' .
-                                    $tanggalMulai->isoFormat('D MMMM YYYY') . ' s/d ' .
-                                    $tanggalSelesai->isoFormat('D MMMM YYYY');
+                                    $tanggalMulai->timezone('Asia/Jakarta')->isoFormat('D MMMM YYYY, HH:mm') . ' WIB s/d ' .
+                                    $tanggalSelesai->timezone('Asia/Jakarta')->isoFormat('D MMMM YYYY, HH:mm') . ' WIB';
                 }
             }
         }
@@ -139,4 +139,3 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </main>
     </div>
-
